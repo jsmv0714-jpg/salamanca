@@ -129,7 +129,7 @@ export default async function PublicacionDetallePage({
 
             {(careers.length > 0 || sectors.length > 0 || areas.length > 0) && (
               <section>
-                <h2 className="text-lg font-bold text-unis-text">Relación con the ecosystem</h2>
+                <h2 className="text-lg font-bold text-unis-text">Relación con el ecosistema</h2>
                 <div className="mt-3 space-y-4">
                   {careers.length > 0 && (
                     <div>
@@ -148,7 +148,7 @@ export default async function PublicacionDetallePage({
                       <p className="text-sm font-semibold text-unis-text">Sectores</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {sectors.map((sector: string) => (
-                          <span key={sector} className="inline-flex items tags-center rounded-md bg-white px-2.5 py-1 text-xs text-unis-gray ring-1 ring-inset ring-unis-lightgray">
+                          <span key={sector} className="inline-flex items-center rounded-md bg-white px-2.5 py-1 text-xs text-unis-gray ring-1 ring-inset ring-unis-lightgray">
                             {sector}
                           </span>
                         ))}

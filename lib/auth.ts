@@ -33,6 +33,12 @@ export const auth = betterAuth({
         defaultValue: "student",
         input: true,
       },
+      // Estado de la cuenta (user_status). Solo lectura: el cliente no puede enviarlo.
+      status: {
+        type: "string",
+        required: false,
+        input: false,
+      },
     },
   },
   databaseHooks: {

@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { authClient } from "../../lib/auth-client";
+import { getSafeRedirect } from "../../lib/redirect";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+function getRedirectTarget() {
+  return getSafeRedirect(new URLSearchParams(window.location.search).get("redirect"));
+}
 
 const roles = [
   { value: "student", label: "Estudiante" },
@@ -22,29 +27,53 @@ export default function RegistroPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const { data: session } = authClient.useSession();
+
+  // Si ya hay una sesión activa, no tiene sentido mostrar el registro.
+  useEffect(() => {
+    if (session && !loading) {
+      router.replace(getRedirectTarget());
+    }
+  }, [session, loading, router]);
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    await authClient.signUp.email(
-      {
-        email,
+    try {
+      const { data, error: signUpError } = await authClient.signUp.email({
+        email: email.trim(),
         password,
-        name,
-        role: role as any,
-      } as any,
-      {
-        onSuccess: () => {
-          router.push("/publicaciones");
-          router.refresh();
-        },
-        onError: (ctx) => {
-          setError(ctx.error.message || "Error al registrarse");
-          setLoading(false);
-        },
+        name: name.trim(),
+        role,
+      });
+
+      // 1. El registro debe haber devuelto un usuario creado
+      if (signUpError || !data?.user) {
+        setError(signUpError?.message || "No se pudo completar el registro");
+        setLoading(false);
+        return;
       }
-    );
+
+      // 2. Confirmar que la sesión quedó activa antes de redirigir
+      const { data: activeSession } = await authClient.getSession();
+      if (!activeSession) {
+        setError(
+          "Tu cuenta se creó, pero no se pudo iniciar la sesión. Intenta iniciar sesión manualmente."
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Se deja loading=true mientras se navega, para evitar doble envío.
+      router.push(getRedirectTarget());
+      router.refresh();
+    } catch (err) {
+      console.error("Error en el registro:", err);
+      setError("Ocurrió un error inesperado. Intenta de nuevo.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -105,11 +134,13 @@ export default function RegistroPage() {
                   type="password"
                   autoComplete="new-password"
                   required
+                  minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="block w-full rounded-md border border-unis-lightgray px-3 py-2 text-sm text-unis-text shadow-sm focus:border-unis-red focus:outline-none focus:ring-1 focus:ring-unis-red"
                 />
               </div>
+              <p className="mt-1 text-xs text-unis-gray">Mínimo 8 caracteres.</p>
             </div>
 
             <div>

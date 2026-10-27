@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { authClient } from "../../lib/auth-client";
+import { getSafeRedirect } from "../../lib/redirect";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+function getRedirectTarget() {
+  return getSafeRedirect(new URLSearchParams(window.location.search).get("redirect"));
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,27 +17,40 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const { data: session } = authClient.useSession();
+
+  // Si ya hay una sesión activa, no tiene sentido mostrar el login.
+  useEffect(() => {
+    if (session && !loading) {
+      router.replace(getRedirectTarget());
+    }
+  }, [session, loading, router]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    await authClient.signIn.email(
-      {
-        email,
+    try {
+      const { data, error: signInError } = await authClient.signIn.email({
+        email: email.trim(),
         password,
-      },
-      {
-        onSuccess: () => {
-          router.push("/publicaciones");
-          router.refresh();
-        },
-        onError: (ctx) => {
-          setError(ctx.error.message || "Error al iniciar sesión");
-          setLoading(false);
-        },
+      });
+
+      if (signInError || !data?.user) {
+        setError(signInError?.message || "Correo o contraseña incorrectos");
+        setLoading(false);
+        return;
       }
-    );
+
+      // Se deja loading=true mientras se navega, para evitar doble envío.
+      router.push(getRedirectTarget());
+      router.refresh();
+    } catch (err) {
+      console.error("Error al iniciar sesión:", err);
+      setError("Ocurrió un error inesperado. Intenta de nuevo.");
+      setLoading(false);
+    }
   };
 
   return (
