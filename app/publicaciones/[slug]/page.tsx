@@ -17,7 +17,6 @@ export default async function PublicacionDetallePage({
     },
     include: {
       publication_types: true,
-      users: true,
       publication_sectors: {
         include: {
           sectors: true,

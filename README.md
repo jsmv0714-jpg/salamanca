@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Marketplace UniSalamanca
 
-## Getting Started
+Marketplace del Consultorio Empresarial Winner de la Universidad de Salamanca Colombia. Conecta empresas, estudiantes, emprendedores, agremiaciones y docentes para publicar ofertas de prácticas y oportunidades B2B (ofertas y solicitudes de servicios entre empresas).
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router) + React 19 + TypeScript
+- PostgreSQL + Prisma 5
+- better-auth (correo y contraseña)
+- Tailwind CSS 4 + lucide-react
+
+## Puesta en marcha
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env        # en Windows: copy .env.example .env  (y completa los valores)
+npx prisma db push          # crea/actualiza las tablas según prisma/schema.prisma
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Si ya tienes la base de datos creada por otro medio, en lugar de `db push` puedes ejecutar `prisma/sql/001_better_auth_users.sql` una vez.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Estructura
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+app/                  Rutas (App Router)
+  api/auth/[...all]/  Endpoint de better-auth
+  publicaciones/      Listado con filtros y detalle por slug
+  login/  registro/   Autenticación
+components/           Componentes de interfaz (layout, publicaciones)
+lib/                  prisma.ts, auth.ts (servidor), auth-client.ts, roles.ts
+prisma/schema.prisma  Modelo de datos
+```
 
-## Learn More
+## Seguridad
 
-To learn more about Next.js, take a look at the following resources:
+- El rol `admin` no se puede elegir al registrarse; se asigna directamente en la base de datos.
+- Nunca subas `.env` a git (ya está en `.gitignore`).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Documentación
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+La documentación detallada (arquitectura, modelo de datos, autenticación y pendientes) está en el documento del proyecto compartido por el equipo.

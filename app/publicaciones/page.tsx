@@ -70,7 +70,6 @@ export default async function PublicacionesPage({
             areas_of_expertise: true,
           },
         },
-        users: true,
       },
       orderBy: {
         published_at: "desc",
