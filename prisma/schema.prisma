@@ -1,0 +1,323 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model areas_of_expertise {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String              @unique @db.VarChar(150)
+  slug              String              @unique @db.VarChar(150)
+  description       String?
+  is_active         Boolean             @default(true)
+  created_at        DateTime            @default(now()) @db.Timestamp(6)
+  updated_at        DateTime            @default(now()) @db.Timestamp(6)
+  publication_areas publication_areas[]
+}
+
+model associations {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String   @unique @db.Uuid
+  name          String   @db.VarChar(200)
+  sector_id     String?  @db.Uuid
+  logo_url      String?  @db.VarChar(500)
+  website       String?  @db.VarChar(500)
+  description   String?
+  core_activity String?
+  contact_email String?  @db.VarChar(150)
+  contact_phone String?  @db.VarChar(50)
+  address       String?  @db.VarChar(255)
+  city          String?  @db.VarChar(100)
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+  updated_at    DateTime @default(now()) @db.Timestamp(6)
+  sectors       sectors? @relation(fields: [sector_id], references: [id], onUpdate: NoAction)
+  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model careers {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String                @unique @db.VarChar(150)
+  slug                String                @unique @db.VarChar(150)
+  faculty             String?               @db.VarChar(150)
+  is_active           Boolean               @default(true)
+  created_at          DateTime              @default(now()) @db.Timestamp(6)
+  updated_at          DateTime              @default(now()) @db.Timestamp(6)
+  publication_careers publication_careers[]
+  students            students[]
+}
+
+model companies {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String              @unique @db.Uuid
+  trade_name      String              @db.VarChar(200)
+  legal_name      String?             @db.VarChar(200)
+  tax_id          String?             @db.VarChar(50)
+  sector_id       String?             @db.Uuid
+  logo_url        String?             @db.VarChar(500)
+  website         String?             @db.VarChar(500)
+  description     String?
+  address         String?             @db.VarChar(255)
+  city            String?             @db.VarChar(100)
+  contact_email   String?             @db.VarChar(150)
+  contact_phone   String?             @db.VarChar(50)
+  linkedin_url    String?             @db.VarChar(500)
+  is_mipyme       Boolean             @default(true)
+  alliance_status alliance_status_mvp @default(none)
+  created_at      DateTime            @default(now()) @db.Timestamp(6)
+  updated_at      DateTime            @default(now()) @db.Timestamp(6)
+  sectors         sectors?            @relation(fields: [sector_id], references: [id], onUpdate: NoAction)
+  users           users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model entrepreneurs {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @unique @db.Uuid
+  first_name   String   @db.VarChar(100)
+  last_name    String   @db.VarChar(100)
+  project_name String?  @db.VarChar(200)
+  description  String?
+  phone        String?  @db.VarChar(50)
+  website      String?  @db.VarChar(500)
+  linkedin_url String?  @db.VarChar(500)
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  updated_at   DateTime @default(now()) @db.Timestamp(6)
+  users        users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model publication_areas {
+  publication_id     String             @db.Uuid
+  area_id            String             @db.Uuid
+  areas_of_expertise areas_of_expertise @relation(fields: [area_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  publications       publications       @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([publication_id, area_id])
+}
+
+model publication_careers {
+  publication_id String       @db.Uuid
+  career_id      String       @db.Uuid
+  careers        careers      @relation(fields: [career_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  publications   publications @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([publication_id, career_id])
+}
+
+model publication_sectors {
+  publication_id String       @db.Uuid
+  sector_id      String       @db.Uuid
+  publications   publications @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sectors        sectors      @relation(fields: [sector_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([publication_id, sector_id])
+}
+
+model publication_types {
+  id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code         publication_type_code @unique
+  name         String                @db.VarChar(100)
+  description  String?
+  is_active    Boolean               @default(true)
+  created_at   DateTime              @default(now()) @db.Timestamp(6)
+  publications publications[]
+}
+
+model publications {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String                @db.Uuid
+  author_type         author_type
+  publication_type_id String                @db.Uuid
+  title               String                @db.VarChar(200)
+  slug                String                @unique @db.VarChar(250)
+  description         String
+  requirements        String?
+  benefits            String?
+  location            String?               @db.VarChar(150)
+  modality            modality_type?
+  deadline            DateTime?             @db.Date
+  contact_email       String?               @db.VarChar(150)
+  contact_phone       String?               @db.VarChar(50)
+  show_contact        Boolean               @default(true)
+  status              publication_status    @default(draft)
+  views_count         Int                   @default(0)
+  published_at        DateTime?             @db.Timestamp(6)
+  created_at          DateTime              @default(now()) @db.Timestamp(6)
+  updated_at          DateTime              @default(now()) @db.Timestamp(6)
+  publication_areas   publication_areas[]
+  publication_careers publication_careers[]
+  publication_sectors publication_sectors[]
+  publication_types   publication_types     @relation(fields: [publication_type_id], references: [id], onUpdate: NoAction)
+  users               users                 @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model sectors {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String                @unique @db.VarChar(150)
+  slug                String                @unique @db.VarChar(150)
+  description         String?
+  is_active           Boolean               @default(true)
+  created_at          DateTime              @default(now()) @db.Timestamp(6)
+  updated_at          DateTime              @default(now()) @db.Timestamp(6)
+  associations        associations[]
+  companies           companies[]
+  publication_sectors publication_sectors[]
+}
+
+model students {
+  id            String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String                @unique @db.Uuid
+  first_name    String                @db.VarChar(100)
+  last_name     String                @db.VarChar(100)
+  document_id   String?               @db.VarChar(50)
+  career_id     String?               @db.Uuid
+  semester      String?               @db.VarChar(20)
+  phone         String?               @db.VarChar(50)
+  bio           String?
+  skills        Json?
+  cv_url        String?               @db.VarChar(500)
+  portfolio_url String?               @db.VarChar(500)
+  linkedin_url  String?               @db.VarChar(500)
+  availability  student_availability?
+  created_at    DateTime              @default(now()) @db.Timestamp(6)
+  updated_at    DateTime              @default(now()) @db.Timestamp(6)
+  careers       careers?              @relation(fields: [career_id], references: [id], onUpdate: NoAction)
+  users         users                 @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model teachers {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String   @unique @db.Uuid
+  first_name          String   @db.VarChar(100)
+  last_name           String   @db.VarChar(100)
+  title               String?  @db.VarChar(150)
+  research_group_name String?  @db.VarChar(150)
+  department          String?  @db.VarChar(150)
+  phone               String?  @db.VarChar(50)
+  bio                 String?
+  linkedin_url        String?  @db.VarChar(500)
+  created_at          DateTime @default(now()) @db.Timestamp(6)
+  updated_at          DateTime @default(now()) @db.Timestamp(6)
+  users               users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model users {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String         @unique @db.VarChar(150)
+  password_hash     String         @db.VarChar(255)
+  role              user_role
+  status            user_status    @default(pending)
+  email_verified_at DateTime?      @db.Timestamp(6)
+  last_login_at     DateTime?      @db.Timestamp(6)
+  created_at        DateTime       @default(now()) @db.Timestamp(6)
+  updated_at        DateTime       @default(now()) @db.Timestamp(6)
+  associations      associations?
+  companies         companies?
+  entrepreneurs     entrepreneurs?
+  publications      publications[]
+  students          students?
+  teachers          teachers?
+  sessions          session[]
+  accounts          account[]
+
+  @@index([email], map: "idx_users_email")
+  @@index([role], map: "idx_users_role")
+  @@index([status], map: "idx_users_status")
+}
+
+model session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String   @db.Uuid
+  users     users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  users                 users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account")
+}
+
+model verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+enum alliance_status_mvp {
+  none
+  intention
+  active
+}
+
+enum author_type {
+  company
+  association
+  entrepreneur
+}
+
+enum modality_type {
+  presential
+  remote
+  hybrid
+}
+
+enum publication_status {
+  draft
+  published
+  closed
+  rejected
+}
+
+enum publication_type_code {
+  internship
+  b2b_offer
+  b2b_request
+}
+
+enum student_availability {
+  full_time
+  part_time
+  flexible
+}
+
+enum user_role {
+  company
+  student
+  teacher
+  association
+  entrepreneur
+  admin
+}
+
+enum user_status {
+  pending
+  active
+  suspended
+}
