@@ -1,8 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { requireUser } from "../../lib/session";
+import { prisma } from "../../lib/prisma";
 import { ROLE_LABELS, STATUS_LABELS } from "../../lib/roles";
+import { getUserRole, getUserStatus } from "../../lib/permissions";
+import { allowedVentureTypes, isDirectoryRole } from "../../lib/ventures";
 import SignOutButton from "../../components/auth/sign-out-button";
+import VentureCard from "../../components/ventures/venture-card";
 
 export default function CuentaPage() {
   return (
@@ -17,8 +21,22 @@ export default function CuentaPage() {
 async function CuentaContent() {
   const user = await requireUser("/cuenta");
 
-  const role = (user as { role?: string }).role ?? "";
-  const status = (user as { status?: string }).status ?? "pending";
+  const role = getUserRole(user);
+  const status = getUserStatus(user);
+
+  const canCreateVentures = allowedVentureTypes(role).length > 0;
+  const isAdmin = role === "admin";
+
+  const [ventures, inReview] = await Promise.all([
+    canCreateVentures || isAdmin
+      ? prisma.ventures.findMany({
+          where: { user_id: user.id },
+          orderBy: { updated_at: "desc" },
+          include: { sectors: true },
+        })
+      : Promise.resolve([]),
+    isAdmin ? prisma.ventures.count({ where: { status: "in_review" } }) : Promise.resolve(0),
+  ]);
 
   const rows: { label: string; value: string }[] = [
     { label: "Nombre", value: user.name },
@@ -53,10 +71,63 @@ async function CuentaContent() {
         </dl>
       </div>
 
+      {isDirectoryRole(role) ? (
+        <section className="mt-8 rounded-lg border border-unis-lightgray bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-unis-text">Perfil del directorio</h2>
+          <p className="mt-1 text-sm text-unis-gray">
+            Presenta tu core y las asesorías que ofreces para que otros miembros del ecosistema te encuentren.
+          </p>
+          <Link
+            href="/cuenta/directorio"
+            className="mt-4 inline-block text-sm font-semibold text-unis-red hover:underline"
+          >
+            Editar mi perfil del directorio
+          </Link>
+        </section>
+      ) : null}
+
+      {canCreateVentures || ventures.length > 0 ? (
+        <section className="mt-8">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-unis-text">Mis ventures</h2>
+            {canCreateVentures ? (
+              <Link href="/ventures/nueva" className="text-sm font-semibold text-unis-red hover:underline">
+                Nueva venture
+              </Link>
+            ) : null}
+          </div>
+          {ventures.length === 0 ? (
+            <p className="mt-3 rounded-lg border border-dashed border-unis-lightgray px-6 py-8 text-center text-sm text-unis-gray">
+              Todavía no has registrado ninguna venture.
+            </p>
+          ) : (
+            <div className="mt-3 grid gap-4">
+              {ventures.map((venture) => (
+                <VentureCard key={venture.id} venture={venture} showStatus />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {isAdmin ? (
+        <section className="mt-8 rounded-lg border border-unis-lightgray bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-unis-text">Administración</h2>
+          <p className="mt-1 text-sm text-unis-gray">
+            {inReview === 0
+              ? "No hay ventures esperando revisión."
+              : `${inReview} ${inReview === 1 ? "venture espera" : "ventures esperan"} revisión.`}
+          </p>
+          <Link href="/admin/ventures" className="mt-4 inline-block text-sm font-semibold text-unis-red hover:underline">
+            Revisar ventures
+          </Link>
+        </section>
+      ) : null}
+
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <Link
           href="/publicaciones"
-          className="rounded-md bg-unis-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+          className="rounded-md bg-unis-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-unis-red-dark"
         >
           Ver publicaciones
         </Link>

@@ -1,17 +1,112 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
+/* Tipografía de la página de la universidad (Plus Jakarta Sans), alojada en el propio proyecto. */
+@import "@fontsource-variable/plus-jakarta-sans";
 
 @theme inline {
-  --color-unis-red: #D22020;
+  /* Color principal de la marca (antes rojo). Se conserva el nombre "unis-red"
+     para no tener que tocar los demás archivos. */
+  --color-unis-red: #2A2266;
+  --color-unis-red-dark: #1D1749;
+  /* Celeste del logo, usado para los efectos de los botones. */
+  --color-unis-cyan: #16B6D6;
   --color-unis-blue: #385E9D;
   --color-unis-gray: #4D4D4D;
   --color-unis-lightgray: #EAEAEA;
   --color-unis-bg: #F8F9FA;
   --color-unis-text: #212529;
-  --font-sans: var(--font-lato), system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body {
   font-family: var(--font-sans);
   background-color: #ffffff;
   color: var(--color-unis-text);
+}
+
+/* ─── Efecto celeste en los botones ───
+   Se aplica solo a los botones y enlaces-botón que ya existen (los de fondo azul
+   oscuro y los de borde gris), sin tocar cada archivo. */
+a[class~="bg-unis-red"],
+button[class~="bg-unis-red"],
+button[class~="border-unis-lightgray"] {
+  transition:
+    box-shadow 0.25s ease,
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* Al pasar el mouse: halo celeste y un pequeño levantamiento. */
+a[class~="bg-unis-red"]:hover,
+button[class~="bg-unis-red"]:hover:not(:disabled) {
+  box-shadow:
+    0 0 0 3px rgb(22 182 214 / 0.3),
+    0 8px 20px -4px rgb(22 182 214 / 0.55);
+  transform: translateY(-1px);
+}
+
+button[class~="border-unis-lightgray"]:hover:not(:disabled) {
+  box-shadow:
+    0 0 0 3px rgb(22 182 214 / 0.22),
+    0 6px 16px -6px rgb(22 182 214 / 0.45);
+}
+
+/* Al presionar: el halo se vuelve más intenso y el botón baja. */
+a[class~="bg-unis-red"]:active,
+button[class~="bg-unis-red"]:active:not(:disabled),
+button[class~="border-unis-lightgray"]:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 0 0 4px rgb(22 182 214 / 0.45);
+}
+
+/* Para quien navega con el teclado. */
+a[class~="bg-unis-red"]:focus-visible,
+button[class~="bg-unis-red"]:focus-visible,
+button[class~="border-unis-lightgray"]:focus-visible {
+  outline: 2px solid #16b6d6;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  a[class~="bg-unis-red"],
+  button[class~="bg-unis-red"],
+  button[class~="border-unis-lightgray"] {
+    transition: none;
+  }
+  a[class~="bg-unis-red"]:hover,
+  button[class~="bg-unis-red"]:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ─── Efecto celeste en las tarjetas (publicaciones, ventures y directorio) ───
+   Aplica a las tarjetas (enlaces o <article>) con borde gris y esquinas redondeadas. */
+:is(a, article)[class~="rounded-lg"][class~="border-unis-lightgray"] {
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+:is(a, article)[class~="rounded-lg"][class~="border-unis-lightgray"]:hover {
+  border-color: #16b6d6;
+  box-shadow:
+    0 0 0 3px rgb(22 182 214 / 0.18),
+    0 12px 28px -10px rgb(22 182 214 / 0.5);
+  transform: translateY(-2px);
+}
+
+:is(a, article)[class~="rounded-lg"][class~="border-unis-lightgray"]:focus-visible {
+  outline: 2px solid #16b6d6;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(a, article)[class~="rounded-lg"][class~="border-unis-lightgray"] {
+    transition: none;
+  }
+  :is(a, article)[class~="rounded-lg"][class~="border-unis-lightgray"]:hover {
+    transform: none;
+  }
 }

@@ -1,4 +1,5 @@
-﻿import { prisma } from "../../lib/prisma";
+import { Suspense } from "react";
+import { prisma } from "../../lib/prisma";
 import PublicationCard from "../../components/publications/publication-card";
 import Link from "next/link";
 
@@ -9,7 +10,19 @@ type SearchParams = {
   modalidad?: string;
 };
 
-export default async function PublicacionesPage({
+export default function PublicacionesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  return (
+    <Suspense fallback={<PublicacionesSkeleton />}>
+      <PublicacionesContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function PublicacionesContent({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
@@ -235,7 +248,7 @@ export default async function PublicacionesPage({
                 <p className="mt-2 text-sm text-unis-gray">Prueba quitando algún filtro para ver más resultados.</p>
                 <Link
                   href="/publicaciones"
-                  className="mt-6 rounded-md bg-unis-red px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                  className="mt-6 rounded-md bg-unis-red px-4 py-2 text-sm font-semibold text-white transition hover:bg-unis-red-dark"
                 >
                   Ver todas las publicaciones
                 </Link>
@@ -248,6 +261,25 @@ export default async function PublicacionesPage({
               </div>
             )}
           </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PublicacionesSkeleton() {
+  return (
+    <div className="bg-white" aria-busy="true">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="h-10 w-56 animate-pulse rounded bg-unis-lightgray" />
+        <div className="mt-3 h-5 w-96 max-w-full animate-pulse rounded bg-unis-lightgray" />
+        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-4">
+          <div className="h-96 animate-pulse rounded-lg bg-unis-bg lg:col-span-1" />
+          <div className="space-y-4 lg:col-span-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-32 animate-pulse rounded-lg bg-unis-bg" />
+            ))}
+          </div>
         </div>
       </div>
     </div>

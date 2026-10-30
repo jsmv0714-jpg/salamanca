@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -16,7 +16,7 @@ export default function Home() {
         <div className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-3">
           <Link
             href="/publicaciones"
-            className="rounded-md bg-unis-red px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+            className="rounded-md bg-unis-red px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-unis-red-dark"
           >
             Ver publicaciones
           </Link>

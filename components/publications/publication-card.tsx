@@ -97,7 +97,7 @@ export default function PublicationCard({ publication }: PublicationCardProps) {
         <p className="text-xs text-unis-gray">Contacto fuera de plataforma</p>
         <Link
           href={`/publicaciones/${publication.slug}`}
-          className="text-sm font-semibold text-unis-red transition hover:text-red-700"
+          className="text-sm font-semibold text-unis-red transition hover:text-unis-red-dark"
         >
           Ver detalles →
         </Link>
