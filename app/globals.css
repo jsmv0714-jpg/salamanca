@@ -23,60 +23,156 @@ body {
   color: var(--color-unis-text);
 }
 
-/* ─── Efecto celeste en los botones ───
-   Se aplica solo a los botones y enlaces-botón que ya existen (los de fondo azul
-   oscuro y los de borde gris), sin tocar cada archivo. */
+/* ─── Botones al estilo de la página de la universidad ───
+   Se aplican a los botones y enlaces-botón que ya existen, sin tocar cada archivo:
+   · principales: los de fondo azul oscuro (bg-unis-red);
+   · secundarios: los de borde gris y esquinas redondeadas, que pasan a borde celeste.
+   Los botones de eliminar (hover:bg-red-50) conservan su aspecto discreto. */
+
 a[class~="bg-unis-red"],
-button[class~="bg-unis-red"],
-button[class~="border-unis-lightgray"] {
+button[class~="bg-unis-red"] {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  cursor: pointer;
   transition:
     box-shadow 0.25s ease,
     transform 0.2s ease,
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
+    background-color 0.2s ease;
 }
 
-/* Al pasar el mouse: halo celeste y un pequeño levantamiento. */
+/* Destello que cruza el botón al pasar el mouse. */
+a[class~="bg-unis-red"]::after,
+button[class~="bg-unis-red"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 0.28) 50%, transparent 65%);
+  transform: translateX(-130%);
+  transition: transform 0.7s ease;
+}
+
 a[class~="bg-unis-red"]:hover,
 button[class~="bg-unis-red"]:hover:not(:disabled) {
   box-shadow:
     0 0 0 3px rgb(22 182 214 / 0.3),
-    0 8px 20px -4px rgb(22 182 214 / 0.55);
-  transform: translateY(-1px);
+    0 10px 24px -6px rgb(22 182 214 / 0.55);
+  transform: translateY(-2px);
 }
 
-button[class~="border-unis-lightgray"]:hover:not(:disabled) {
+a[class~="bg-unis-red"]:hover::after,
+button[class~="bg-unis-red"]:hover:not(:disabled)::after {
+  transform: translateX(130%);
+}
+
+a[class~="bg-unis-red"]:active,
+button[class~="bg-unis-red"]:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 0 0 4px rgb(22 182 214 / 0.45);
+}
+
+button[class~="border-unis-lightgray"]:not([class~="hover:bg-red-50"]),
+a[class~="rounded-md"][class~="border-unis-lightgray"]:not([class~="hover:bg-red-50"]) {
+  border-width: 2px;
+  border-color: #16b6d6;
+  border-radius: 0.75rem;
+  color: #2a2266;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    box-shadow 0.25s ease,
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+
+button[class~="border-unis-lightgray"]:not([class~="hover:bg-red-50"]):hover:not(:disabled),
+a[class~="rounded-md"][class~="border-unis-lightgray"]:not([class~="hover:bg-red-50"]):hover {
+  background-color: rgb(22 182 214 / 0.1);
   box-shadow:
     0 0 0 3px rgb(22 182 214 / 0.22),
-    0 6px 16px -6px rgb(22 182 214 / 0.45);
+    0 8px 20px -8px rgb(22 182 214 / 0.5);
+  transform: translateY(-2px);
 }
 
-/* Al presionar: el halo se vuelve más intenso y el botón baja. */
-a[class~="bg-unis-red"]:active,
-button[class~="bg-unis-red"]:active:not(:disabled),
-button[class~="border-unis-lightgray"]:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 0 0 4px rgb(22 182 214 / 0.45);
+button[class~="border-unis-lightgray"]:not([class~="hover:bg-red-50"]):active:not(:disabled),
+a[class~="rounded-md"][class~="border-unis-lightgray"]:not([class~="hover:bg-red-50"]):active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 0 0 4px rgb(22 182 214 / 0.4);
 }
 
 /* Para quien navega con el teclado. */
 a[class~="bg-unis-red"]:focus-visible,
 button[class~="bg-unis-red"]:focus-visible,
-button[class~="border-unis-lightgray"]:focus-visible {
+button[class~="border-unis-lightgray"]:focus-visible,
+a[class~="rounded-md"][class~="border-unis-lightgray"]:focus-visible {
   outline: 2px solid #16b6d6;
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 @media (prefers-reduced-motion: reduce) {
   a[class~="bg-unis-red"],
   button[class~="bg-unis-red"],
-  button[class~="border-unis-lightgray"] {
+  button[class~="border-unis-lightgray"],
+  a[class~="rounded-md"][class~="border-unis-lightgray"] {
     transition: none;
   }
+  a[class~="bg-unis-red"]::after,
+  button[class~="bg-unis-red"]::after {
+    display: none;
+  }
   a[class~="bg-unis-red"]:hover,
-  button[class~="bg-unis-red"]:hover:not(:disabled) {
+  button[class~="bg-unis-red"]:hover:not(:disabled),
+  button[class~="border-unis-lightgray"]:hover:not(:disabled),
+  a[class~="rounded-md"][class~="border-unis-lightgray"]:hover {
     transform: none;
+  }
+}
+
+/* ─── Animaciones de entrada (inicio) ─── */
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(0.45em);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reveal-word {
+  display: inline-block;
+  opacity: 0;
+  animation: reveal-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+.reveal-fade {
+  opacity: 0;
+  animation: fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-word,
+  .reveal-fade {
+    animation: none;
+    opacity: 1;
   }
 }
 
