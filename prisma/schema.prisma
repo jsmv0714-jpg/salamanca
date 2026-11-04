@@ -152,6 +152,8 @@ model publications {
   publication_sectors publication_sectors[]
   publication_types   publication_types     @relation(fields: [publication_type_id], references: [id], onUpdate: NoAction)
   users               users                 @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  rejection_reason String?
+  applications     applications[]
 }
 
 model sectors {
@@ -230,6 +232,7 @@ model users {
   accounts          account[]
   ventures           ventures[]
   directory_profiles directory_profiles?
+  applications       applications[]
 
   @@index([email], map: "idx_users_email")
   @@index([role], map: "idx_users_role")
@@ -303,6 +306,7 @@ enum publication_status {
   published
   closed
   rejected
+  in_review
 }
 
 enum publication_type_code {
@@ -430,4 +434,52 @@ enum business_model {
   b2b
   b2c
   both
+}
+
+// ─── Fase 3: postulaciones a publicaciones ───
+
+model applications {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  publication_id String             @db.Uuid
+  applicant_id   String             @db.Uuid
+  message        String
+  /// Enlaces que comparte quien se postula (hoja de vida, portafolio, LinkedIn).
+  cv_url         String?            @db.VarChar(500)
+  portfolio_url  String?            @db.VarChar(500)
+  linkedin_url   String?            @db.VarChar(500)
+  phone          String?            @db.VarChar(50)
+  /// Autorización para compartir sus datos con quien publicó la oferta.
+  data_consent   Boolean            @default(false)
+  consent_at     DateTime?          @db.Timestamp(6)
+  status         application_status @default(sent)
+  created_at     DateTime           @default(now()) @db.Timestamp(6)
+  updated_at     DateTime           @default(now()) @updatedAt @db.Timestamp(6)
+  publications   publications       @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users          users              @relation(fields: [applicant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  application_files application_files?
+
+  @@unique([publication_id, applicant_id], map: "uq_applications_publication_applicant")
+  @@index([applicant_id], map: "idx_applications_applicant")
+  @@index([status], map: "idx_applications_status")
+}
+
+enum application_status {
+  sent
+  viewed
+  shortlisted
+  accepted
+  rejected
+  withdrawn
+}
+
+/// Hoja de vida adjunta a una postulación. Se guarda aparte para no cargar el archivo al listar postulaciones.
+model application_files {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  application_id String       @unique @db.Uuid
+  filename       String       @db.VarChar(255)
+  mime_type      String       @db.VarChar(100)
+  size_bytes     Int
+  data           Bytes
+  created_at     DateTime     @default(now()) @db.Timestamp(6)
+  applications   applications @relation(fields: [application_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }

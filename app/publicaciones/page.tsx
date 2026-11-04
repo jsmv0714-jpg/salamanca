@@ -107,13 +107,21 @@ async function PublicacionesContent({
   return (
     <div className="bg-white">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-black tracking-tight text-unis-text sm:text-4xl">
-            Publicaciones
-          </h1>
-          <p className="mt-2 text-base text-unis-gray">
-            Ofertas de prácticas, solicitudes y colaboraciones B2B entre empresas, agremiaciones y emprendedores.
-          </p>
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-unis-text sm:text-4xl">
+              Publicaciones
+            </h1>
+            <p className="mt-2 max-w-2xl text-base text-unis-gray">
+              Ofertas de prácticas, solicitudes y colaboraciones B2B entre empresas, agremiaciones y emprendedores.
+            </p>
+          </div>
+          <Link
+            href="/publicaciones/nueva"
+            className="rounded-md bg-unis-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-unis-red-dark"
+          >
+            Publicar
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
@@ -248,7 +256,7 @@ async function PublicacionesContent({
                 <p className="mt-2 text-sm text-unis-gray">Prueba quitando algún filtro para ver más resultados.</p>
                 <Link
                   href="/publicaciones"
-                  className="mt-6 rounded-md bg-unis-red px-4 py-2 text-sm font-semibold text-white transition hover:bg-unis-red-dark"
+                  className="mt-6 rounded-md bg-unis-red px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
                 >
                   Ver todas las publicaciones
                 </Link>

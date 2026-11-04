@@ -1,201 +1,361 @@
-import { prisma } from "../../../lib/prisma";
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarDays, Mail, MapPin, Phone } from "lucide-react";
+import { CalendarDays, MapPin } from "lucide-react";
+import { prisma } from "../../../lib/prisma";
+import { getCurrentUser } from "../../../lib/session";
+import { getUserRole, getUserStatus } from "../../../lib/permissions";
+import { formatDate, isPastDeadline } from "../../../lib/dates";
+import {
+  MODALITY_LABELS,
+  APPLICATION_STATUS_LABELS,
+  canApplyToType,
+  applyCopy,
+  isApplicationStatus,
+  isModality,
+  whoCanApply,
+} from "../../../lib/publications";
+import Badge from "../../../components/ui/badge";
+import Callout from "../../../components/ui/callout";
+import { secondaryButtonClass } from "../../../components/ui/form";
+import ApplyForm from "../../../components/publications/apply-form";
+import { ApplicationStatusBadge, PublicationStatusBadge } from "../../../components/publications/status-badges";
+import { applyToPublication } from "./actions";
 
-export default async function PublicacionDetallePage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-
-  const publication = await prisma.publications.findUnique({
-    where: {
-      slug: slug,
-      status: "published",
-    },
-    include: {
-      publication_types: true,
-      publication_sectors: {
-        include: {
-          sectors: true,
-        },
-      },
-      publication_careers: {
-        include: {
-          careers: true,
-        },
-      },
-      publication_areas: {
-        include: {
-          areas_of_expertise: true,
-        },
-      },
-    },
-  });
-
-  if (!publication) {
-    notFound();
-  }
-
-  const typeName = publication.publication_types?.name || "";
-  const isInternship = publication.publication_types?.code === "internship";
-  const isB2BOffer = publication.publication_types?.code === "b2b_offer";
-  const isB2BRequest = publication.publication_types?.code === "b2b_request";
-
-  const getBadgeColor = () => {
-    if (isInternship) return "bg-blue-50 text-blue-700 ring-blue-600/20";
-    if (isB2BOffer) return "bg-emerald-50 text-emerald-700 ring-emerald-600/20";
-    if (isB2BRequest) return "bg-amber-50 text-amber-700 ring-amber-600/20";
-    return "bg-gray-50 text-gray-700 ring-gray-600/20";
-  };
-
-  const careers = publication.publication_careers?.map((pc: any) => pc.careers?.name).filter(Boolean) || [];
-  const sectors = publication.publication_sectors?.map((ps: any) => ps.sectors?.name).filter(Boolean) || [];
-  const areas = publication.publication_areas?.map((pa: any) => pa.areas_of_expertise?.name).filter(Boolean) || [];
-
+export default function PublicacionDetallePage({ params }: { params: Promise<{ slug: string }> }) {
   return (
     <div className="bg-white">
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <Link
-          href="/publicaciones"
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-unis-gray transition hover:text-unis-red"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a publicaciones
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <Link href="/publicaciones" className="text-sm font-medium text-unis-gray hover:text-unis-red">
+          ← Volver a publicaciones
         </Link>
-
-        <article className="rounded-lg border border-unis-lightgray bg-white shadow-sm">
-          <header className="border-b border-unis-lightgray px-6 py-6 sm:px-8">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${getBadgeColor()}`}>
-                {typeName}
-              </span>
-              {publication.modality && (
-                <span className="inline-flex items-center rounded-full bg-unis-bg px-2.5 py-1 text-xs font-medium text-unis-gray ring-1 ring-inset ring-unis-lightgray">
-                  {publication.modality === "presential" && "Presencial"}
-                  {publication.modality === "remote" && "Remoto"}
-                  {publication.modality === "hybrid" && "Híbrido"}
-                </span>
-              )}
-            </div>
-
-            <h1 className="mt-4 text-2xl font-black tracking-tight text-unis-text sm:text-3xl">
-              {publication.title}
-            </h1>
-
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-unis-gray">
-              {publication.location && (
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" />
-                  <span>{publication.location}</span>
-                </div>
-              )}
-              {publication.deadline && (
-                <div className="flex items-center gap-1.5">
-                  <CalendarDays className="h-4 w-4" />
-                  <span>Fecha límite: {new Date(publication.deadline).toLocaleDateString("es-CO")}</span>
-                </div>
-              )}
-            </div>
-          </header>
-
-          <div className="space-y-8 px-6 py-6 sm:px-8">
-            <section>
-              <h2 className="text-lg font-bold text-unis-text">Descripción</h2>
-              <div className="mt-3 whitespace-pre-line text-sm leading-relaxed text-unis-gray">
-                {publication.description}
-              </div>
-            </section>
-
-            {publication.requirements && (
-              <section>
-                <h2 className="text-lg font-bold text-unis-text">Requisitos</h2>
-                <div className="mt-3 whitespace-pre-line text-sm leading-relaxed text-unis-gray">
-                  {publication.requirements}
-                </div>
-              </section>
-            )}
-
-            {publication.benefits && (
-              <section>
-                <h2 className="text-lg font-bold text-unis-text">Beneficios</h2>
-                <div className="mt-3 whitespace-pre-line text-sm leading-relaxed text-unis-gray">
-                  {publication.benefits}
-                </div>
-              </section>
-            )}
-
-            {(careers.length > 0 || sectors.length > 0 || areas.length > 0) && (
-              <section>
-                <h2 className="text-lg font-bold text-unis-text">Relación con el ecosistema</h2>
-                <div className="mt-3 space-y-4">
-                  {careers.length > 0 && (
-                    <div>
-                      <p className="text-sm font-semibold text-unis-text">Dirigido a</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {careers.map((career: string) => (
-                          <span key={career} className="inline-flex items-center rounded-md bg-white px-2.5 py-1 text-xs text-unis-gray ring-1 ring-inset ring-unis-lightgray">
-                            {career}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {sectors.length > 0 && (
-                    <div>
-                      <p className="text-sm font-semibold text-unis-text">Sectores</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {sectors.map((sector: string) => (
-                          <span key={sector} className="inline-flex items-center rounded-md bg-white px-2.5 py-1 text-xs text-unis-gray ring-1 ring-inset ring-unis-lightgray">
-                            {sector}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {areas.length > 0 && (
-                    <div>
-                      <p className="text-sm font-semibold text-unis-text">Áreas de experiencia</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {areas.map((area: string) => (
-                          <span key={area} className="inline-flex items-center rounded-md bg-unis-bg px-2.5 py-1 text-xs text-unis-gray ring-1 ring-inset ring-unis-lightgray">
-                            {area}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {publication.show_contact && (publication.contact_email || publication.contact_phone) && (
-              <section className="rounded-lg border border-unis-lightgray bg-unis-bg/50 p-6">
-                <h2 className="text-lg font-bold text-unis-text">Contacto para postular o contactar</h2>
-                <p className="mt-1 text-sm text-unis-gray">
-                  Esta plataforma actúa solo como intermediario. El contacto se realiza fuera de ella.
-                </p>
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                  {publication.contact_email && (
-                    <a href={`mailto:${publication.contact_email}`} className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-medium text-unis-text ring-1 ring-inset ring-unis-lightgray transition hover:text-unis-red">
-                      <Mail className="h-4 w-4" />
-                      {publication.contact_email}
-                    </a>
-                  )}
-                  {publication.contact_phone && (
-                    <a href={`tel:${publication.contact_phone}`} className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-medium text-unis-text ring-1 ring-inset ring-unis-lightgray transition hover:text-unis-red">
-                      <Phone className="h-4 w-4" />
-                      {publication.contact_phone}
-                    </a>
-                  )}
-                </div>
-              </section>
-            )}
-          </div>
-        </article>
+        <Suspense fallback={<div className="mt-6 h-96 animate-pulse rounded-lg bg-unis-bg" aria-busy="true" />}>
+          <PublicacionDetalle params={params} />
+        </Suspense>
       </div>
     </div>
+  );
+}
+
+async function PublicacionDetalle({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+
+  const [publication, user] = await Promise.all([
+    prisma.publications.findUnique({
+      where: { slug },
+      include: {
+        publication_types: true,
+        publication_sectors: { include: { sectors: true } },
+        publication_careers: { include: { careers: true } },
+        publication_areas: { include: { areas_of_expertise: true } },
+        users: {
+          select: {
+            name: true,
+            companies: { select: { trade_name: true } },
+            associations: { select: { name: true } },
+            entrepreneurs: { select: { project_name: true, first_name: true, last_name: true } },
+          },
+        },
+        _count: { select: { applications: true } },
+      },
+    }),
+    getCurrentUser(),
+  ]);
+
+  if (!publication) notFound();
+
+  const isOwner = user?.id === publication.user_id;
+  const isAdmin = getUserRole(user) === "admin";
+  const isPublic = publication.status === "published" || publication.status === "closed";
+  if (!isPublic && !isOwner && !isAdmin) notFound();
+
+  const typeCode = publication.publication_types.code;
+  const modality = isModality(publication.modality) ? MODALITY_LABELS[publication.modality] : null;
+  const careers = publication.publication_careers.map((c) => c.careers.name);
+  const sectors = publication.publication_sectors.map((s) => s.sectors.name);
+  const areas = publication.publication_areas.map((a) => a.areas_of_expertise.name);
+
+  const { companies, associations, entrepreneurs } = publication.users;
+  const authorName =
+    companies?.trade_name ||
+    associations?.name ||
+    entrepreneurs?.project_name ||
+    [entrepreneurs?.first_name, entrepreneurs?.last_name].filter(Boolean).join(" ") ||
+    publication.users.name ||
+    "Miembro del ecosistema";
+
+  const hasContact = publication.show_contact && (publication.contact_email || publication.contact_phone);
+  const expired = isPastDeadline(publication.deadline);
+
+  return (
+    <article className="mt-6">
+      {!isPublic ? (
+        <div className="mb-6 space-y-2">
+          <Callout tone={publication.status === "rejected" ? "error" : "warning"}>
+            <p className="font-semibold">
+              Estado: <PublicationStatusBadge status={publication.status} />
+            </p>
+            <p className="mt-1">
+              {publication.status === "draft" && "Solo tú puedes ver este borrador. Envíala a revisión cuando esté lista."}
+              {publication.status === "in_review" && "Un administrador la está revisando. Aún no es pública."}
+              {publication.status === "rejected" &&
+                `No fue aprobada${publication.rejection_reason ? `: ${publication.rejection_reason}` : "."} Puedes corregirla y enviarla de nuevo.`}
+            </p>
+          </Callout>
+        </div>
+      ) : null}
+      {publication.status === "closed" ? (
+        <div className="mb-6">
+          <Callout tone="info">Esta publicación está cerrada y ya no recibe postulaciones.</Callout>
+        </div>
+      ) : null}
+
+      <header>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone="blue">{publication.publication_types.name}</Badge>
+          {modality ? <Badge>{modality}</Badge> : null}
+        </div>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-unis-text">{publication.title}</h1>
+        <p className="mt-2 text-sm text-unis-gray">
+          Publicado por <span className="font-semibold text-unis-text">{authorName}</span>
+          {publication.published_at ? ` · ${formatDate(publication.published_at)}` : ""}
+        </p>
+      </header>
+
+      {isOwner || isAdmin ? (
+        <div className="mt-5 flex flex-wrap gap-3">
+          {isOwner ? (
+            <>
+              <Link href={`/publicaciones/${publication.slug}/editar`} className={secondaryButtonClass}>
+                Editar publicación
+              </Link>
+              <Link href={`/publicaciones/${publication.slug}/postulaciones`} className={secondaryButtonClass}>
+                Postulaciones recibidas ({publication._count.applications})
+              </Link>
+            </>
+          ) : (
+            <Link href="/admin/publicaciones" className={secondaryButtonClass}>
+              Ir a moderación
+            </Link>
+          )}
+        </div>
+      ) : null}
+
+      <div className="mt-8 grid gap-8 md:grid-cols-3">
+        <div className="space-y-8 md:col-span-2">
+          <section>
+            <h2 className="text-lg font-bold text-unis-text">Descripción</h2>
+            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{publication.description}</p>
+          </section>
+
+          {publication.requirements ? (
+            <section>
+              <h2 className="text-lg font-bold text-unis-text">Requisitos</h2>
+              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{publication.requirements}</p>
+            </section>
+          ) : null}
+
+          {publication.benefits ? (
+            <section>
+              <h2 className="text-lg font-bold text-unis-text">Beneficios</h2>
+              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{publication.benefits}</p>
+            </section>
+          ) : null}
+
+          {careers.length > 0 || sectors.length > 0 || areas.length > 0 ? (
+            <section>
+              <h2 className="text-lg font-bold text-unis-text">Relación con el ecosistema</h2>
+              <div className="mt-3 space-y-4">
+                {[
+                  { title: "Carreras", items: careers },
+                  { title: "Sectores", items: sectors },
+                  { title: "Áreas de consultoría", items: areas },
+                ]
+                  .filter((group) => group.items.length > 0)
+                  .map((group) => (
+                    <div key={group.title}>
+                      <p className="text-sm font-semibold text-unis-text">{group.title}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {group.items.map((item) => (
+                          <span
+                            key={item}
+                            className="inline-flex items-center rounded-md bg-unis-bg px-2.5 py-1 text-xs text-unis-gray ring-1 ring-inset ring-unis-lightgray"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+
+        <aside className="space-y-6 md:col-span-1">
+          <section className="rounded-lg border border-unis-lightgray bg-white p-5 shadow-sm">
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-unis-text">Detalles</h2>
+            <ul className="space-y-2 text-sm text-unis-gray">
+              {publication.location ? (
+                <li className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {publication.location}
+                </li>
+              ) : null}
+              {publication.deadline ? (
+                <li className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {expired ? "Venció el" : "Hasta el"} {formatDate(publication.deadline)}
+                </li>
+              ) : null}
+              {!publication.location && !publication.deadline ? <li>Sin detalles adicionales.</li> : null}
+            </ul>
+            {hasContact ? (
+              <div className="mt-4 space-y-1 border-t border-unis-lightgray pt-4 text-sm">
+                {publication.contact_email ? (
+                  <a href={`mailto:${publication.contact_email}`} className="block font-medium text-unis-red hover:underline">
+                    {publication.contact_email}
+                  </a>
+                ) : null}
+                {publication.contact_phone ? (
+                  <a href={`tel:${publication.contact_phone}`} className="block font-medium text-unis-red hover:underline">
+                    {publication.contact_phone}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+
+          {publication.status === "published" ? (
+            <ApplyPanel
+              slug={publication.slug}
+              publicationId={publication.id}
+              typeCode={typeCode}
+              expired={expired}
+              user={user}
+              isOwner={isOwner}
+            />
+          ) : null}
+        </aside>
+      </div>
+    </article>
+  );
+}
+
+async function ApplyPanel({
+  slug,
+  publicationId,
+  typeCode,
+  expired,
+  user,
+  isOwner,
+}: {
+  slug: string;
+  publicationId: string;
+  typeCode: string;
+  expired: boolean;
+  user: { id: string } | null;
+  isOwner: boolean;
+}) {
+  const copy = applyCopy(typeCode);
+  const box = "rounded-lg border border-unis-lightgray bg-white p-5 shadow-sm";
+
+  if (isOwner) return null;
+
+  if (expired) {
+    return (
+      <section className={box}>
+        <Callout tone="info">El plazo para postularse terminó.</Callout>
+      </section>
+    );
+  }
+
+  if (!user) {
+    return (
+      <section className={box}>
+        <h2 className="text-sm font-bold uppercase tracking-wide text-unis-text">{copy.title}</h2>
+        <p className="mt-2 text-sm text-unis-gray">Inicia sesión o crea una cuenta para enviar tu solicitud.</p>
+        <Link
+          href={`/login?redirect=${encodeURIComponent(`/publicaciones/${slug}`)}`}
+          className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-unis-red px-4 py-2 text-sm font-semibold text-white transition hover:bg-unis-red-dark"
+        >
+          Iniciar sesión
+        </Link>
+        <Link href="/registro" className="mt-3 block text-center text-sm font-medium text-unis-red hover:underline">
+          Crear cuenta
+        </Link>
+      </section>
+    );
+  }
+
+  const role = getUserRole(user);
+  if (role === "admin") return null;
+
+  if (!canApplyToType(typeCode, role)) {
+    return (
+      <section className={box}>
+        <Callout tone="info">{whoCanApply(typeCode)}</Callout>
+      </section>
+    );
+  }
+
+  if (getUserStatus(user) !== "active") {
+    return (
+      <section className={box}>
+        <Callout tone="warning">
+          Tu cuenta aún no está activa. Cuando un administrador la active podrás enviar tu solicitud.
+        </Callout>
+      </section>
+    );
+  }
+
+  const existing = await prisma.applications.findUnique({
+    where: { publication_id_applicant_id: { publication_id: publicationId, applicant_id: user.id } },
+    select: { status: true, created_at: true },
+  });
+
+  if (existing) {
+    return (
+      <section className={box}>
+        <h2 className="text-sm font-bold uppercase tracking-wide text-unis-text">Tu solicitud</h2>
+        <p className="mt-2 text-sm text-unis-gray">
+          La enviaste el {formatDate(existing.created_at)}.
+        </p>
+        <p className="mt-2">
+          <ApplicationStatusBadge status={existing.status} />
+        </p>
+        {isApplicationStatus(existing.status) && existing.status === "withdrawn" ? (
+          <p className="mt-2 text-xs text-unis-gray">
+            Estado: {APPLICATION_STATUS_LABELS[existing.status]}. Ya no puedes enviar otra solicitud a esta publicación.
+          </p>
+        ) : null}
+        <Link href="/cuenta/postulaciones" className="mt-4 inline-block text-sm font-semibold text-unis-red hover:underline">
+          Ver mis postulaciones
+        </Link>
+      </section>
+    );
+  }
+
+  const student =
+    role === "student"
+      ? await prisma.students.findUnique({
+          where: { user_id: user.id },
+          select: { portfolio_url: true, linkedin_url: true, phone: true },
+        })
+      : null;
+
+  return (
+    <section className={box}>
+      <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-unis-text">{copy.title}</h2>
+      <ApplyForm
+        action={applyToPublication.bind(null, slug)}
+        typeCode={typeCode}
+        defaults={{
+          portfolio_url: student?.portfolio_url ?? "",
+          linkedin_url: student?.linkedin_url ?? "",
+          phone: student?.phone ?? "",
+        }}
+      />
+    </section>
   );
 }
