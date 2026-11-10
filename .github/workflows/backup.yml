@@ -5,6 +5,9 @@
 #   BACKUP_S3_BUCKET      bucket de copias (distinto al de medios)
 #   BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY   token de R2 solo para ese bucket
 #   BACKUP_HEARTBEAT_URL  (opcional) URL del monitor tipo "heartbeat" de UptimeRobot
+#
+# Mientras falte algún secreto, la ejecución termina correctamente y solo deja un aviso.
+# El contexto `secrets` no se puede usar en `if`, por eso la comprobación se hace en un paso.
 
 name: Copia de seguridad
 
@@ -20,28 +23,48 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+      BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+      BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+      BACKUP_HEARTBEAT_URL: ${{ secrets.BACKUP_HEARTBEAT_URL }}
     steps:
+      - name: Comprobar la configuración
+        id: config
+        run: |
+          if [ -z "$DATABASE_URL" ] \
+            || [ -z "$BACKUP_S3_ENDPOINT" ] \
+            || [ -z "$BACKUP_S3_BUCKET" ] \
+            || [ -z "$BACKUP_S3_ACCESS_KEY_ID" ] \
+            || [ -z "$BACKUP_S3_SECRET_ACCESS_KEY" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::La copia de seguridad aún no está configurada (faltan secretos de GitHub). Se omite esta ejecución."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Copia de seguridad configurada."
+          fi
+
       - name: Volcar la base de datos
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        if: steps.config.outputs.configured == 'true'
         run: |
           # pg_dump debe ser de la misma versión mayor que el servidor (Neon usa Postgres 17).
-          docker run --rm -e DATABASE_URL="$DATABASE_URL" postgres:17 \
+          docker run --rm -e DATABASE_URL postgres:17 \
             sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges' > backup.dump
           test -s backup.dump
 
       - name: Subir la copia a R2
+        if: steps.config.outputs.configured == 'true'
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ env.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.BACKUP_S3_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
-          BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
-          ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
         run: |
           KEY="db/$(date -u +%Y-%m-%d_%H%M).dump"
-          aws s3 cp backup.dump "s3://$BUCKET/$KEY" --endpoint-url "$ENDPOINT"
+          aws s3 cp backup.dump "s3://$BACKUP_S3_BUCKET/$KEY" --endpoint-url "$BACKUP_S3_ENDPOINT"
           echo "Copia subida: $KEY ($(stat -c %s backup.dump) bytes)"
 
       - name: Avisar al monitor
-        if: ${{ secrets.BACKUP_HEARTBEAT_URL != '' }}
-        run: curl -fsS --retry 3 "${{ secrets.BACKUP_HEARTBEAT_URL }}" > /dev/null
+        if: steps.config.outputs.configured == 'true' && env.BACKUP_HEARTBEAT_URL != ''
+        run: curl -fsS --retry 3 "$BACKUP_HEARTBEAT_URL" > /dev/null
