@@ -87,6 +87,19 @@ Las páginas de términos, privacidad y contacto siguen marcadas como borrador h
 6. Operación: monitor sobre `/api/health` (alerta tras dos fallos seguidos), revisión de errores 5xx y copias de seguridad de base de datos y medios con restauración probada.
 7. Calidad: `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:e2e` y `npm run build` en verde sobre el commit que se va a desplegar.
 
+## Despliegue gratuito (Render, Neon, Cloudflare R2, UptimeRobot)
+
+Todo el despliegue usa planes gratuitos. Limitaciones: la app en Render se duerme tras 15 minutos sin tráfico (tarda cerca de un minuto en despertar; el monitor de UptimeRobot la mantiene activa), y Neon guarda 1 GB por proyecto y no hace copias automáticas, por eso existe la copia diaria de GitHub Actions.
+
+1. **Base de datos (Neon).** Crea un proyecto en el plan Free y copia la cadena de conexión con `sslmode=require`. Será `DATABASE_URL`.
+2. **Archivos (Cloudflare R2).** Crea dos buckets: `unisalamanca-media` (medios) y `unisalamanca-backups` (copias). En el de medios activa el acceso público de desarrollo (`MEDIA_PUBLIC_URL`) y aplica la política CORS de la sección de medios. Crea un token de API con lectura y escritura solo para cada bucket: uno para `S3_*` y otro para `BACKUP_S3_*`. En el bucket de copias añade una regla de ciclo de vida que borre objetos de más de 30 días.
+3. **Aplicación (Render).** En *New → Blueprint* conecta el repositorio; Render lee `render.yaml`. Completa las variables marcadas como secretas (`DATABASE_URL`, `BETTER_AUTH_URL` y `NEXT_PUBLIC_APP_URL` con la URL de Render, `RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL` y las `S3_*`). `BETTER_AUTH_SECRET` se genera sola.
+4. **Primer administrador.** Como Render Free no ofrece consola, ejecútalo desde tu equipo con la `DATABASE_URL` de Neon en `.env`: `npm run admin:promote -- correo@dominio`.
+5. **Monitor (UptimeRobot).** Crea un monitor HTTP sobre `https://<tu-app>.onrender.com/api/health` cada 5 minutos con aviso por correo. Opcional: crea un monitor tipo *heartbeat* para las copias y pon su URL en `BACKUP_HEARTBEAT_URL`.
+6. **Copias (GitHub Actions).** En *Settings → Secrets and variables → Actions* agrega `DATABASE_URL`, `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID` y `BACKUP_S3_SECRET_ACCESS_KEY` (y opcionalmente `BACKUP_HEARTBEAT_URL`). El flujo corre cada día a las 05:17 UTC y puedes lanzarlo a mano desde la pestaña *Actions*.
+
+Revisa cada mes que la copia se haya creado y restaura una en una base vacía (`pg_restore --clean --no-owner --dbname=...`); una copia que nunca se ha probado no sirve.
+
 ## Seguridad
 
 - Las rutas de administración responden **404** a quien no es administrador: no revelamos que la ruta existe ni ofrecemos una pantalla de "acceso denegado".

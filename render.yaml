@@ -1,0 +1,41 @@
+# Despliegue gratuito en Render (plan Free). Ver la sección "Despliegue gratuito" del README.
+# Los valores marcados con sync: false se completan en el panel de Render, nunca aquí.
+services:
+  - type: web
+    name: unisalamanca-marketplace
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npm run build
+    # Las migraciones se aplican antes de arrancar. Son idempotentes: sin cambios pendientes no hacen nada.
+    startCommand: npm run db:deploy && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: CONTACT_EMAIL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: MEDIA_PUBLIC_URL
+        sync: false

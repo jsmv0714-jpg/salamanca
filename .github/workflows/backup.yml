@@ -1,0 +1,47 @@
+# Copia diaria de la base de datos en Cloudflare R2 (capa gratuita).
+# Secretos necesarios en GitHub (Settings > Secrets and variables > Actions):
+#   DATABASE_URL          cadena de conexión de Neon (solo lectura basta)
+#   BACKUP_S3_ENDPOINT    https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+#   BACKUP_S3_BUCKET      bucket de copias (distinto al de medios)
+#   BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY   token de R2 solo para ese bucket
+#   BACKUP_HEARTBEAT_URL  (opcional) URL del monitor tipo "heartbeat" de UptimeRobot
+
+name: Copia de seguridad
+
+on:
+  schedule:
+    - cron: "17 5 * * *" # 05:17 UTC cada día
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Volcar la base de datos
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # pg_dump debe ser de la misma versión mayor que el servidor (Neon usa Postgres 17).
+          docker run --rm -e DATABASE_URL="$DATABASE_URL" postgres:17 \
+            sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges' > backup.dump
+          test -s backup.dump
+
+      - name: Subir la copia a R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+        run: |
+          KEY="db/$(date -u +%Y-%m-%d_%H%M).dump"
+          aws s3 cp backup.dump "s3://$BUCKET/$KEY" --endpoint-url "$ENDPOINT"
+          echo "Copia subida: $KEY ($(stat -c %s backup.dump) bytes)"
+
+      - name: Avisar al monitor
+        if: ${{ secrets.BACKUP_HEARTBEAT_URL != '' }}
+        run: curl -fsS --retry 3 "${{ secrets.BACKUP_HEARTBEAT_URL }}" > /dev/null
