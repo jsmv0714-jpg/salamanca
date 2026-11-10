@@ -5,6 +5,7 @@ import { prisma } from "../../lib/prisma";
 import { getCurrentUser } from "../../lib/session";
 import { getUserRole, getUserStatus } from "../../lib/permissions";
 import { slugify } from "../../lib/slug";
+import { deleteMedia, thumbKeyFor } from "../../lib/storage";
 import { todayInBogota } from "../../lib/dates";
 import {
   UUID_RE,
@@ -285,11 +286,23 @@ export async function deletePublication(slug: string): Promise<void> {
 
   const publication = await prisma.publications.findUnique({
     where: { slug },
-    select: { id: true, user_id: true },
+    select: { id: true, user_id: true, publication_media: { select: { storage_key: true, thumb_key: true } } },
   });
   const isAdmin = getUserRole(user) === "admin";
   if (!publication || (publication.user_id !== user.id && !isAdmin)) redirect("/publicaciones");
 
   await prisma.publications.delete({ where: { id: publication.id } });
+
+  // La BD borra las filas en cascada; los archivos hay que quitarlos del almacenamiento.
+  await Promise.all(
+    publication.publication_media.flatMap((media) => {
+      const keys = [media.storage_key, media.thumb_key ?? thumbKeyFor(media.storage_key)];
+      return keys.map((key) =>
+        deleteMedia(key).catch((error) => {
+          console.error("No se pudo borrar un archivo de la publicación eliminada:", error);
+        })
+      );
+    })
+  );
   redirect(isAdmin && publication.user_id !== user.id ? "/admin/publicaciones" : "/cuenta/publicaciones");
 }

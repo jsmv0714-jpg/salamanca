@@ -36,7 +36,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const file = application.application_files;
-  return new Response(file.data, {
+  // `Uint8Array` es un BodyInit válido; el Buffer de Prisma no encaja en los tipos de Next 16.
+  return new Response(new Uint8Array(file.data), {
     headers: {
       "Content-Type": file.mime_type,
       "Content-Disposition": contentDisposition(file.filename),

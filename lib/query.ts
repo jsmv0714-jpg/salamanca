@@ -26,3 +26,9 @@ export function fold(text: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 }
+
+/** Número de página válido (entero positivo); cualquier otra cosa cae en 1. */
+export function pageNumber(value: string | undefined, fallback = 1): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}

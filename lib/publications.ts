@@ -15,8 +15,18 @@ export const PUBLICATION_STATUS_LABELS: Record<PublicationStatus, string> = {
   rejected: "Rechazada",
 };
 
+export const PUBLICATION_TYPE_CODES = ["internship", "b2b_offer", "b2b_request"] as const;
+export type PublicationTypeCode = (typeof PUBLICATION_TYPE_CODES)[number];
+
+export function isPublicationTypeCode(value: unknown): value is PublicationTypeCode {
+  return typeof value === "string" && (PUBLICATION_TYPE_CODES as readonly string[]).includes(value);
+}
+
 export const MODALITIES = ["presential", "remote", "hybrid"] as const;
 export type Modality = (typeof MODALITIES)[number];
+
+/** Tamaño de página del listado público de publicaciones. */
+export const PUBLICATIONS_PAGE_SIZE = 9;
 
 export function isModality(value: unknown): value is Modality {
   return typeof value === "string" && (MODALITIES as readonly string[]).includes(value);
@@ -51,11 +61,16 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   withdrawn: "Retirada",
 };
 
+/** Quien retiró su postulación puede volver a enviarla una sola vez (`reapplied_at` queda fijado al hacerlo). */
+export function canReapply(application: { status: string; reapplied_at: Date | null }): boolean {
+  return application.status === "withdrawn" && application.reapplied_at === null;
+}
+
 /** Estados que quien publica puede asignar a una postulación. */
 export const REVIEWER_APPLICATION_STATUSES = ["viewed", "shortlisted", "accepted", "rejected"] as const;
 
-/** Roles que pueden publicar (coinciden con el enum author_type). */
-export const AUTHOR_ROLES = ["company", "association", "entrepreneur"] as const;
+/** Roles que pueden publicar ofertas (un subconjunto del enum author_type). */
+export const AUTHOR_ROLES = ["company", "entrepreneur"] as const;
 export type AuthorRole = (typeof AUTHOR_ROLES)[number];
 
 export function isAuthorRole(value: unknown): value is AuthorRole {

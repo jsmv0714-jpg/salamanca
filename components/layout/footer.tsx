@@ -13,9 +13,9 @@ export default function Footer() {
             <p className="text-sm text-unis-gray">Marketplace - Consultorio Empresarial Winner</p>
           </div>
           <div className="flex items-center gap-4 text-sm text-unis-gray">
-            <Link href="#" className="hover:text-unis-red">Términos y condiciones</Link>
-            <Link href="#" className="hover:text-unis-red">Política de privacidad</Link>
-            <Link href="#" className="hover:text-unis-red">Contacto</Link>
+            <Link href="/terminos" className="hover:text-unis-red">Términos y condiciones</Link>
+            <Link href="/privacidad" className="hover:text-unis-red">Política de privacidad</Link>
+            <Link href="/contacto" className="hover:text-unis-red">Contacto</Link>
           </div>
         </div>
         <div className="mt-6 text-center text-xs text-unis-gray">

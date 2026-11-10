@@ -1,13 +1,20 @@
 import { Suspense } from "react";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import PublicationCard from "../../components/publications/publication-card";
+import PublishButton from "../../components/publications/publish-button";
+import Pagination from "../../components/ui/pagination";
+import PageHeader from "../../components/ui/page-header";
+import { isModality, isPublicationTypeCode, PUBLICATIONS_PAGE_SIZE } from "../../lib/publications";
+import { buildQuery, pageNumber, param } from "../../lib/query";
 import Link from "next/link";
 
 type SearchParams = {
-  tipo?: string;
-  carrera?: string;
-  sector?: string;
-  modalidad?: string;
+  tipo?: string | string[];
+  carrera?: string | string[];
+  sector?: string | string[];
+  modalidad?: string | string[];
+  page?: string | string[];
 };
 
 export default function PublicacionesPage({
@@ -29,65 +36,51 @@ async function PublicacionesContent({
 }) {
   const params = await searchParams;
 
-  const where: any = {
+  // Los valores de la URL no son de fiar: se normalizan y se validan contra los
+  // catálogos antes de llegar a Prisma (un enum inválido produce un error 500).
+  const activeTipo = param(params.tipo);
+  const activeCarrera = param(params.carrera);
+  const activeSector = param(params.sector);
+  const activeModalidad = param(params.modalidad);
+
+  const where: Prisma.publicationsWhereInput = {
     status: "published",
   };
 
-  if (params.tipo) {
+  if (isPublicationTypeCode(activeTipo)) {
     where.publication_types = {
-      code: params.tipo,
+      code: activeTipo,
     };
   }
 
-  if (params.modalidad) {
-    where.modality = params.modalidad;
+  if (isModality(activeModalidad)) {
+    where.modality = activeModalidad;
   }
 
-  if (params.carrera) {
+  if (activeCarrera) {
     where.publication_careers = {
       some: {
         careers: {
-          slug: params.carrera,
+          slug: activeCarrera,
         },
       },
     };
   }
 
-  if (params.sector) {
+  if (activeSector) {
     where.publication_sectors = {
       some: {
         sectors: {
-          slug: params.sector,
+          slug: activeSector,
         },
       },
     };
   }
 
-  const [publications, publicationTypes, careers, sectors] = await Promise.all([
-    prisma.publications.findMany({
-      where,
-      include: {
-        publication_types: true,
-        publication_sectors: {
-          include: {
-            sectors: true,
-          },
-        },
-        publication_careers: {
-          include: {
-            careers: true,
-          },
-        },
-        publication_areas: {
-          include: {
-            areas_of_expertise: true,
-          },
-        },
-      },
-      orderBy: {
-        published_at: "desc",
-      },
-    }),
+  const requestedPage = pageNumber(param(params.page));
+
+  const [total, publicationTypes, careers, sectors] = await Promise.all([
+    prisma.publications.count({ where }),
     prisma.publication_types.findMany({
       where: { is_active: true },
       orderBy: { name: "asc" },
@@ -102,31 +95,71 @@ async function PublicacionesContent({
     }),
   ]);
 
-  const hasFilters = params.tipo || params.carrera || params.sector || params.modalidad;
+  const totalPages = Math.max(1, Math.ceil(total / PUBLICATIONS_PAGE_SIZE));
+  const currentPage = Math.min(requestedPage, totalPages);
+
+  const publications = await prisma.publications.findMany({
+    where,
+    include: {
+      publication_types: true,
+      publication_sectors: {
+        include: {
+          sectors: true,
+        },
+      },
+      publication_careers: {
+        include: {
+          careers: true,
+        },
+      },
+      publication_areas: {
+        include: {
+          areas_of_expertise: true,
+        },
+      },
+      publication_media: {
+        where: { kind: "image" },
+        orderBy: { position: "asc" },
+        take: 1,
+        select: { storage_key: true, thumb_key: true },
+      },
+    },
+    orderBy: {
+      published_at: "desc",
+    },
+    skip: (currentPage - 1) * PUBLICATIONS_PAGE_SIZE,
+    take: PUBLICATIONS_PAGE_SIZE,
+  });
+
+  const hasFilters = activeTipo || activeCarrera || activeSector || activeModalidad;
+  const filters = {
+    tipo: activeTipo,
+    carrera: activeCarrera,
+    sector: activeSector,
+    modalidad: activeModalidad,
+  };
+  const pageHref = (page: number) =>
+    `/publicaciones${buildQuery(filters, { page: page > 1 ? String(page) : undefined })}`;
+
+  const firstOnPage = total === 0 ? 0 : (currentPage - 1) * PUBLICATIONS_PAGE_SIZE + 1;
+  const lastOnPage = Math.min(currentPage * PUBLICATIONS_PAGE_SIZE, total);
 
   return (
     <div className="bg-white">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-unis-text sm:text-4xl">
-              Publicaciones
-            </h1>
-            <p className="mt-2 max-w-2xl text-base text-unis-gray">
-              Ofertas de prácticas, solicitudes y colaboraciones B2B entre empresas, agremiaciones y emprendedores.
-            </p>
-          </div>
-          <Link
-            href="/publicaciones/nueva"
-            className="rounded-md bg-unis-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-unis-red-dark"
-          >
-            Publicar
-          </Link>
-        </div>
+        <PageHeader
+          title="Publicaciones"
+          description="Ofertas de prácticas, solicitudes y colaboraciones B2B entre empresas, agremiaciones y emprendedores."
+          action={
+            <Suspense fallback={null}>
+              <PublishButton />
+            </Suspense>
+          }
+        />
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
           <aside className="lg:col-span-1">
-            <div className="sticky top-6 space-y-6 rounded-lg border border-unis-lightgray bg-white p-6 shadow-sm">
+            <div className="sticky top-6 space-y-6 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm">
               <div>
                 <h2 className="text-sm font-bold uppercase tracking-wide text-unis-text">
                   Filtros
@@ -148,13 +181,13 @@ async function PublicacionesContent({
                     <Link
                       key={type.id}
                       href={`/publicaciones?${new URLSearchParams({
-                        ...(params.tipo === type.code ? {} : { tipo: type.code }),
-                        ...(params.carrera ? { carrera: params.carrera } : {}),
-                        ...(params.sector ? { sector: params.sector } : {}),
-                        ...(params.modalidad ? { modalidad: params.modalidad } : {}),
+                        ...(activeTipo === type.code ? {} : { tipo: type.code }),
+                        ...(activeCarrera ? { carrera: activeCarrera } : {}),
+                        ...(activeSector ? { sector: activeSector } : {}),
+                        ...(activeModalidad ? { modalidad: activeModalidad } : {}),
                       }).toString()}`}
                       className={`block rounded-md px-2 py-1.5 text-sm transition ${
-                        params.tipo === type.code
+                        activeTipo === type.code
                           ? "bg-unis-red/5 font-semibold text-unis-red"
                           : "text-unis-gray hover:bg-unis-bg hover:text-unis-text"
                       }`}
@@ -172,13 +205,13 @@ async function PublicacionesContent({
                     <Link
                       key={career.id}
                       href={`/publicaciones?${new URLSearchParams({
-                        ...(params.tipo ? { tipo: params.tipo } : {}),
-                        ...(params.carrera === career.slug ? {} : { carrera: career.slug }),
-                        ...(params.sector ? { sector: params.sector } : {}),
-                        ...(params.modalidad ? { modalidad: params.modalidad } : {}),
+                        ...(activeTipo ? { tipo: activeTipo } : {}),
+                        ...(activeCarrera === career.slug ? {} : { carrera: career.slug }),
+                        ...(activeSector ? { sector: activeSector } : {}),
+                        ...(activeModalidad ? { modalidad: activeModalidad } : {}),
                       }).toString()}`}
                       className={`block rounded-md px-2 py-1.5 text-sm transition ${
-                        params.carrera === career.slug
+                        activeCarrera === career.slug
                           ? "bg-unis-red/5 font-semibold text-unis-red"
                           : "text-unis-gray hover:bg-unis-bg hover:text-unis-text"
                       }`}
@@ -196,13 +229,13 @@ async function PublicacionesContent({
                     <Link
                       key={sector.id}
                       href={`/publicaciones?${new URLSearchParams({
-                        ...(params.tipo ? { tipo: params.tipo } : {}),
-                        ...(params.carrera ? { carrera: params.carrera } : {}),
-                        ...(params.sector === sector.slug ? {} : { sector: sector.slug }),
-                        ...(params.modalidad ? { modalidad: params.modalidad } : {}),
+                        ...(activeTipo ? { tipo: activeTipo } : {}),
+                        ...(activeCarrera ? { carrera: activeCarrera } : {}),
+                        ...(activeSector === sector.slug ? {} : { sector: sector.slug }),
+                        ...(activeModalidad ? { modalidad: activeModalidad } : {}),
                       }).toString()}`}
                       className={`block rounded-md px-2 py-1.5 text-sm transition ${
-                        params.sector === sector.slug
+                        activeSector === sector.slug
                           ? "bg-unis-red/5 font-semibold text-unis-red"
                           : "text-unis-gray hover:bg-unis-bg hover:text-unis-text"
                       }`}
@@ -224,13 +257,13 @@ async function PublicacionesContent({
                     <Link
                       key={mod.value}
                       href={`/publicaciones?${new URLSearchParams({
-                        ...(params.tipo ? { tipo: params.tipo } : {}),
-                        ...(params.carrera ? { carrera: params.carrera } : {}),
-                        ...(params.sector ? { sector: params.sector } : {}),
-                        ...(params.modalidad === mod.value ? {} : { modalidad: mod.value }),
+                        ...(activeTipo ? { tipo: activeTipo } : {}),
+                        ...(activeCarrera ? { carrera: activeCarrera } : {}),
+                        ...(activeSector ? { sector: activeSector } : {}),
+                        ...(activeModalidad === mod.value ? {} : { modalidad: mod.value }),
                       }).toString()}`}
                       className={`block rounded-md px-2 py-1.5 text-sm transition ${
-                        params.modalidad === mod.value
+                        activeModalidad === mod.value
                           ? "bg-unis-red/5 font-semibold text-unis-red"
                           : "text-unis-gray hover:bg-unis-bg hover:text-unis-text"
                       }`}
@@ -246,7 +279,11 @@ async function PublicacionesContent({
           <section className="lg:col-span-3">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-unis-gray">
-                {publications.length} {publications.length === 1 ? "publicación encontrada" : "publicaciones encontradas"}
+                {total === 0
+                  ? "0 publicaciones encontradas"
+                  : `Mostrando ${firstOnPage}–${lastOnPage} de ${total} ${
+                      total === 1 ? "publicación" : "publicaciones"
+                    }`}
               </p>
             </div>
 
@@ -262,11 +299,20 @@ async function PublicacionesContent({
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6">
-                {publications.map((publication) => (
-                  <PublicationCard key={publication.id} publication={publication} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 gap-6">
+                  {publications.map((publication) => (
+                    <PublicationCard key={publication.id} publication={publication} />
+                  ))}
+                </div>
+
+                <Pagination
+                  label="Paginación de publicaciones"
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  hrefFor={pageHref}
+                />
+              </>
             )}
           </section>
         </div>

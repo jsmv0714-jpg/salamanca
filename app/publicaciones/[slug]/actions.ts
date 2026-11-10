@@ -6,6 +6,8 @@ import { getCurrentUser } from "../../../lib/session";
 import { getUserRole, getUserStatus } from "../../../lib/permissions";
 import { isPastDeadline } from "../../../lib/dates";
 import { readCvFile, type CvReadResult } from "../../../lib/cv-file";
+import { appUrl, sendEmail } from "../../../lib/email";
+import { notifyUsers } from "../../../lib/notifications";
 import {
   UUID_RE,
   getString,
@@ -22,6 +24,45 @@ import {
 
 function isUniqueViolation(error: unknown): boolean {
   return (error as { code?: string } | null)?.code === "P2002";
+}
+
+type ApplicationContent = {
+  message: string;
+  portfolio_url: string | null;
+  linkedin_url: string | null;
+  phone: string | null;
+  data_consent: boolean;
+  consent_at: Date;
+};
+
+type CvFileData = { filename: string; mime_type: string; size_bytes: number; data: Buffer };
+
+/**
+ * Vuelve a enviar una postulación retirada, solo si aún no la reenvió antes.
+ * Devuelve false si no hay una retirada que pueda reenviarse.
+ */
+async function reapplyAfterWithdrawal(
+  publicationId: string,
+  applicantId: string,
+  content: ApplicationContent,
+  cvFile: CvFileData | null
+): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.applications.updateMany({
+      where: { publication_id: publicationId, applicant_id: applicantId, status: "withdrawn", reapplied_at: null },
+      data: { ...content, status: "sent", created_at: new Date(), reapplied_at: new Date() },
+    });
+    if (count === 0) return false;
+
+    if (cvFile) {
+      const application = await tx.applications.findUniqueOrThrow({
+        where: { publication_id_applicant_id: { publication_id: publicationId, applicant_id: applicantId } },
+        select: { id: true },
+      });
+      await tx.application_files.create({ data: { application_id: application.id, ...cvFile } });
+    }
+    return true;
+  });
 }
 
 /** Envía una postulación (o solicitud de interés) a una publicación. */
@@ -41,7 +82,9 @@ export async function applyToPublication(slug: string, _prev: FormState, formDat
       user_id: true,
       status: true,
       deadline: true,
+      title: true,
       publication_types: { select: { code: true } },
+      users: { select: { email: true } },
     },
   });
   if (!publication || publication.status !== "published") {
@@ -100,30 +143,66 @@ export async function applyToPublication(slug: string, _prev: FormState, formDat
     return { error: "Revisa los campos marcados.", fieldErrors: errors, values };
   }
 
+  const content: ApplicationContent = {
+    message,
+    portfolio_url: urls.portfolio_url || null,
+    linkedin_url: urls.linkedin_url || null,
+    phone: phone || null,
+    data_consent: true,
+    consent_at: new Date(),
+  };
+  const cvFile: CvFileData | null = cv
+    ? {
+        filename: cv.filename,
+        mime_type: cv.mimeType,
+        size_bytes: cv.size,
+        // Prisma tipa las columnas Bytes como Buffer.
+        data: Buffer.from(cv.data),
+      }
+    : null;
+
   try {
     await prisma.applications.create({
       data: {
         publication_id: publication.id,
         applicant_id: user.id,
-        message,
-        portfolio_url: urls.portfolio_url || null,
-        linkedin_url: urls.linkedin_url || null,
-        phone: phone || null,
-        data_consent: true,
-        consent_at: new Date(),
-        ...(cv
-          ? {
-              application_files: {
-                create: { filename: cv.filename, mime_type: cv.mimeType, size_bytes: cv.size, data: cv.data },
-              },
-            }
-          : {}),
+        ...content,
+        ...(cvFile ? { application_files: { create: cvFile } } : {}),
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { error: "Ya enviaste una solicitud a esta publicación." };
-    return { error: "No se pudo enviar tu solicitud. Intenta de nuevo.", values };
+    if (!isUniqueViolation(error)) return { error: "No se pudo enviar tu solicitud. Intenta de nuevo.", values };
+    let reapplied: boolean;
+    try {
+      reapplied = await reapplyAfterWithdrawal(publication.id, user.id, content, cvFile);
+    } catch {
+      return { error: "No se pudo enviar tu solicitud. Intenta de nuevo.", values };
+    }
+    if (!reapplied) return { error: "Ya enviaste una solicitud a esta publicación." };
   }
+
+  // Aviso al autor de la publicación. Un fallo de correo no invalida la postulación.
+  await notifyUsers([
+    {
+      userId: publication.user_id,
+      type: "application_received",
+      title: "Nueva postulación",
+      body: `${user.name || user.email} envió una solicitud a "${publication.title}".`,
+      href: `/publicaciones/${slug}/postulaciones`,
+    },
+  ]);
+
+  await sendEmail({
+    to: publication.users.email,
+    subject: `Nueva postulación: ${publication.title}`,
+    text: [
+      `${user.name || user.email} envió una postulación a "${publication.title}".`,
+      "",
+      `Revísala aquí: ${appUrl()}/publicaciones/${slug}/postulaciones`,
+    ].join("\n"),
+  }).catch((error) => {
+    console.error("No se pudo notificar al autor de la publicación:", error);
+  });
 
   redirect("/cuenta/postulaciones?enviada=1");
 }
@@ -163,7 +242,12 @@ export async function updateApplicationStatus(formData: FormData): Promise<void>
 
   const application = await prisma.applications.findUnique({
     where: { id },
-    select: { status: true, publications: { select: { slug: true, user_id: true } } },
+    select: {
+      status: true,
+      applicant_id: true,
+      users: { select: { email: true, name: true } },
+      publications: { select: { slug: true, user_id: true, title: true } },
+    },
   });
   if (!application) redirect("/cuenta/publicaciones");
 
@@ -172,7 +256,41 @@ export async function updateApplicationStatus(formData: FormData): Promise<void>
 
   // Una postulación retirada ya no se puede cambiar.
   if (application.status !== "withdrawn") {
+    const changed = application.status !== status;
     await prisma.applications.update({ where: { id }, data: { status } });
+
+    // Solo se avisa de las decisiones finales y cuando el estado cambió.
+    if (changed && (status === "accepted" || status === "rejected")) {
+      await notifyUsers([
+        {
+          userId: application.applicant_id,
+          type: status === "accepted" ? "application_accepted" : "application_rejected",
+          title: status === "accepted" ? "Postulación aceptada" : "Postulación rechazada",
+          body: `Tu postulación a "${application.publications.title}" fue ${
+            status === "accepted" ? "aceptada" : "rechazada"
+          }.`,
+          href: "/cuenta/postulaciones",
+        },
+      ]);
+
+      await sendEmail({
+        to: application.users.email,
+        subject: `Tu postulación a "${application.publications.title}" fue ${
+          status === "accepted" ? "aceptada" : "rechazada"
+        }`,
+        text: [
+          `Hola${application.users.name ? ` ${application.users.name}` : ""},`,
+          "",
+          `Tu postulación a "${application.publications.title}" fue ${
+            status === "accepted" ? "aceptada" : "rechazada"
+          }.`,
+          "",
+          `Puedes ver el detalle en ${appUrl()}/cuenta/postulaciones`,
+        ].join("\n"),
+      }).catch((error) => {
+        console.error("No se pudo notificar al postulante:", error);
+      });
+    }
   }
   redirect(`/publicaciones/${application.publications.slug}/postulaciones`);
 }

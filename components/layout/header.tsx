@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogIn, Menu, User, UserPlus, X } from "lucide-react";
 import { authClient } from "../../lib/auth-client";
 import SignOutButton from "../auth/sign-out-button";
+import NotificationBell from "../notifications/notification-bell";
 
 const NAV_LINKS = [
   { href: "/publicaciones", label: "Publicaciones" },
@@ -44,6 +45,7 @@ function AuthActions({
   if (session) {
     return (
       <>
+        <NotificationBell onNavigate={onNavigate} />
         <Link href="/cuenta" onClick={onNavigate} className={outlineButtonClass}>
           <User className="h-4 w-4 text-unis-cyan" aria-hidden="true" />
           <span className="max-w-32 truncate">{firstName}</span>
@@ -71,12 +73,36 @@ function AuthActions({
   );
 }
 
-export default function Header() {
+function NavLinkItems({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+  return (
+    <>
+      {NAV_LINKS.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          onClick={onNavigate}
+          aria-current={isActive(link.href) ? "page" : undefined}
+          className={navLinkClass(isActive(link.href))}
+        >
+          {link.label}
+        </Link>
+      ))}
+    </>
+  );
+}
+
+/** Lee la ruta actual en cliente; va dentro de Suspense para no bloquear el prerenderizado. */
+function CurrentNavLinkItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  return <NavLinkItems pathname={pathname} onNavigate={onNavigate} />;
+}
+
+export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: session, isPending } = authClient.useSession();
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const closeMenu = () => setMenuOpen(false);
 
   return (
@@ -109,16 +135,9 @@ export default function Header() {
           {/* Menú de escritorio */}
           <div className="hidden items-center gap-1 lg:flex">
             <nav className="flex items-center gap-1" aria-label="Principal">
-              {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  aria-current={isActive(link.href) ? "page" : undefined}
-                  className={navLinkClass(isActive(link.href))}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              <Suspense fallback={<NavLinkItems pathname="" />}>
+                <CurrentNavLinkItems />
+              </Suspense>
             </nav>
             <div className="ml-4 flex min-h-10 items-center gap-2">
               <AuthActions session={session} isPending={isPending} />
@@ -141,17 +160,9 @@ export default function Header() {
         {menuOpen ? (
           <div id="menu-movil" className="border-t border-unis-lightgray bg-white lg:hidden">
             <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3 sm:px-6" aria-label="Principal">
-              {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={closeMenu}
-                  aria-current={isActive(link.href) ? "page" : undefined}
-                  className={navLinkClass(isActive(link.href))}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              <Suspense fallback={<NavLinkItems pathname="" onNavigate={closeMenu} />}>
+                <CurrentNavLinkItems onNavigate={closeMenu} />
+              </Suspense>
             </nav>
             <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 pb-4 sm:px-6">
               <AuthActions session={session} isPending={isPending} onNavigate={closeMenu} />

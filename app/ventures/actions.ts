@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "../../lib/prisma";
 import { getCurrentUser } from "../../lib/session";
-import { getUserRole } from "../../lib/permissions";
+import { getUserRole, getUserStatus } from "../../lib/permissions";
 import { slugify } from "../../lib/slug";
 import {
   UUID_RE,
@@ -188,6 +188,9 @@ function isUniqueViolation(error: unknown): boolean {
 export async function createVenture(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login?redirect=/ventures/nueva");
+  if (getUserStatus(user) !== "active") {
+    return { error: "Tu cuenta debe estar activa para crear una venture. Un administrador debe activarla." };
+  }
 
   const role = getUserRole(user);
   const parsed = await parseVentureForm(formData, allowedVentureTypes(role));
@@ -235,6 +238,9 @@ export async function updateVenture(
   if (!venture || (!isOwner && role !== "admin")) {
     return { error: "No tienes permiso para editar esta venture." };
   }
+  if (getUserStatus(user) !== "active") {
+    return { error: "Tu cuenta debe estar activa para editar una venture. Un administrador debe activarla." };
+  }
 
   const allowedTypes = Array.from(new Set<VentureType>([...allowedVentureTypes(role), venture.type]));
   const parsed = await parseVentureForm(formData, allowedTypes);
@@ -274,6 +280,7 @@ export async function updateVenture(
 export async function deleteVenture(slug: string): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect(`/login?redirect=${encodeURIComponent(`/ventures/${slug}`)}`);
+  if (getUserStatus(user) !== "active") redirect("/cuenta");
 
   const venture = await prisma.ventures.findUnique({
     where: { slug },

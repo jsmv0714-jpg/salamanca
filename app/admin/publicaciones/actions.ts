@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUser } from "../../../lib/session";
 import { getUserRole } from "../../../lib/permissions";
+import { notifyUsers } from "../../../lib/notifications";
 import { UUID_RE, getString } from "../../../lib/validation";
 
 async function assertAdmin() {
@@ -18,7 +19,10 @@ export async function approvePublication(formData: FormData): Promise<void> {
   const id = getString(formData, "id");
   if (!UUID_RE.test(id)) redirect("/admin/publicaciones");
 
-  const publication = await prisma.publications.findUnique({ where: { id }, select: { published_at: true } });
+  const publication = await prisma.publications.findUnique({
+    where: { id },
+    select: { user_id: true, title: true, slug: true, published_at: true },
+  });
   if (publication) {
     await prisma.publications.update({
       where: { id },
@@ -28,6 +32,16 @@ export async function approvePublication(formData: FormData): Promise<void> {
         published_at: publication.published_at ?? new Date(),
       },
     });
+
+    await notifyUsers([
+      {
+        userId: publication.user_id,
+        type: "publication_approved",
+        title: "Publicación aprobada",
+        body: `"${publication.title}" ya está visible en el Marketplace.`,
+        href: `/publicaciones/${publication.slug}`,
+      },
+    ]);
   }
   redirect("/admin/publicaciones?ok=aprobada");
 }
@@ -41,9 +55,26 @@ export async function rejectPublication(formData: FormData): Promise<void> {
   const reason = getString(formData, "reason");
   if (reason.length < 5 || reason.length > 500) redirect("/admin/publicaciones?error=motivo");
 
+  const publication = await prisma.publications.findUnique({
+    where: { id },
+    select: { user_id: true, title: true, slug: true },
+  });
+
   await prisma.publications.updateMany({
     where: { id },
     data: { status: "rejected", rejection_reason: reason },
   });
+
+  if (publication) {
+    await notifyUsers([
+      {
+        userId: publication.user_id,
+        type: "publication_rejected",
+        title: "Publicación no aprobada",
+        body: `"${publication.title}" no fue aprobada: ${reason}`,
+        href: `/publicaciones/${publication.slug}/editar`,
+      },
+    ]);
+  }
   redirect("/admin/publicaciones?ok=rechazada");
 }

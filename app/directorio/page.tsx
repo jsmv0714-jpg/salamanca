@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "../../lib/prisma";
 import { loadDirectory, type DirectoryFilters } from "../../lib/directory";
-import { buildQuery, param } from "../../lib/query";
+import { buildQuery, pageNumber, param } from "../../lib/query";
 import {
   ALLIANCE_LABELS,
   BUSINESS_MODEL_LABELS,
@@ -13,6 +13,10 @@ import {
 } from "../../lib/ventures";
 import DirectoryCard from "../../components/directory/directory-card";
 import { inputClass } from "../../components/ui/form";
+import Pagination from "../../components/ui/pagination";
+import PageHeader from "../../components/ui/page-header";
+
+const DIRECTORY_PAGE_SIZE = 12;
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -20,13 +24,10 @@ export default function DirectorioPage({ searchParams }: { searchParams: Promise
   return (
     <div className="bg-white">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-black tracking-tight text-unis-text sm:text-4xl">Directorio</h1>
-          <p className="mt-2 max-w-2xl text-base text-unis-gray">
-            Las empresas, agremiaciones, emprendedores y consultores del ecosistema Winner: quién ofrece qué y en
-            qué puede asesorar.
-          </p>
-        </div>
+        <PageHeader
+          title="Directorio"
+          description="Las empresas, agremiaciones, emprendedores y consultores del ecosistema Winner: quién ofrece qué y en qué puede asesorar."
+        />
 
         <Suspense fallback={<ListSkeleton />}>
           <DirectorioContent searchParams={searchParams} />
@@ -71,10 +72,14 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
     }`;
   const href = (overrides: Record<string, string | undefined>) => `/directorio${buildQuery(current, overrides)}`;
 
+  const totalPages = Math.max(1, Math.ceil(entries.length / DIRECTORY_PAGE_SIZE));
+  const currentPage = Math.min(pageNumber(param(raw.page)), totalPages);
+  const pageEntries = entries.slice((currentPage - 1) * DIRECTORY_PAGE_SIZE, currentPage * DIRECTORY_PAGE_SIZE);
+
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
       <aside className="lg:col-span-1">
-        <div className="sticky top-6 space-y-6 rounded-lg border border-unis-lightgray bg-white p-6 shadow-sm">
+        <div className="sticky top-6 space-y-6 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm">
           <form action="/directorio" method="get" className="space-y-2">
             {Object.entries(current).map(([key, value]) =>
               key !== "q" && value ? <input key={key} type="hidden" name={key} value={value} /> : null
@@ -196,11 +201,19 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {entries.map((entry) => (
-              <DirectoryCard key={entry.id} entry={entry} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-4">
+              {pageEntries.map((entry) => (
+                <DirectoryCard key={entry.id} entry={entry} />
+              ))}
+            </div>
+            <Pagination
+              label="Paginación del directorio"
+              currentPage={currentPage}
+              totalPages={totalPages}
+              hrefFor={(page) => href({ page: page > 1 ? String(page) : undefined })}
+            />
+          </>
         )}
       </section>
     </div>

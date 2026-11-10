@@ -4,17 +4,25 @@ import { notFound } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import { loadDirectoryEntry } from "../../../lib/directory";
 import { ALLIANCE_LABELS, BUSINESS_MODEL_LABELS, DIRECTORY_ROLE_LABELS } from "../../../lib/ventures";
+import { MapPin } from "lucide-react";
 import Avatar from "../../../components/ui/avatar";
 import Badge from "../../../components/ui/badge";
+import {
+  DetailBackLink,
+  DetailFact,
+  DetailHero,
+  InfoCard,
+  SectionTitle,
+} from "../../../components/ui/detail-layout";
 import VentureCard from "../../../components/ventures/venture-card";
+import TechBackground from "../../../components/ui/tech-background";
 
 export default function DirectorioDetallePage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <div className="bg-white">
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <Link href="/directorio" className="text-sm font-medium text-unis-gray hover:text-unis-red">
-          ← Volver al directorio
-        </Link>
+    <div className="relative isolate overflow-hidden bg-unis-red">
+      <TechBackground />
+      <div className="relative mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <DetailBackLink href="/directorio">Volver al directorio</DetailBackLink>
         <Suspense fallback={<div className="mt-6 h-96 animate-pulse rounded-lg bg-unis-bg" aria-busy="true" />}>
           <DirectorioDetalle params={params} />
         </Suspense>
@@ -37,39 +45,45 @@ async function DirectorioDetalle({ params }: { params: Promise<{ id: string }> }
   const hasContact = entry.website || entry.linkedinUrl || entry.contactEmail;
 
   return (
-    <article className="mt-6">
-      <header className="flex gap-5">
-        <Avatar name={entry.name} logoUrl={entry.logoUrl} size="lg" />
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="neutral">{DIRECTORY_ROLE_LABELS[entry.role]}</Badge>
-            {entry.allianceStatus && ALLIANCE_LABELS[entry.allianceStatus] ? (
-              <Badge tone="green">{ALLIANCE_LABELS[entry.allianceStatus]}</Badge>
+    <article className="mt-6 rounded-3xl bg-white p-6 shadow-xl sm:p-10">
+      <DetailHero>
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <Avatar name={entry.name} logoUrl={entry.logoUrl} size="lg" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="neutral">{DIRECTORY_ROLE_LABELS[entry.role]}</Badge>
+              {entry.allianceStatus && ALLIANCE_LABELS[entry.allianceStatus] ? (
+                <Badge tone="green">{ALLIANCE_LABELS[entry.allianceStatus]}</Badge>
+              ) : null}
+              {entry.businessModel ? <Badge tone="blue">{BUSINESS_MODEL_LABELS[entry.businessModel]}</Badge> : null}
+            </div>
+            <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight text-unis-text sm:text-4xl">
+              {entry.name}
+            </h1>
+            {entry.subtitle ? <p className="mt-2 text-base text-unis-gray">{entry.subtitle}</p> : null}
+            {entry.headline ? <p className="mt-1 text-lg text-unis-gray">{entry.headline}</p> : null}
+            {[entry.sector, entry.city].some(Boolean) ? (
+              <div className="mt-4">
+                <DetailFact icon={<MapPin />}>{[entry.sector, entry.city].filter(Boolean).join(" · ")}</DetailFact>
+              </div>
             ) : null}
-            {entry.businessModel ? <Badge tone="blue">{BUSINESS_MODEL_LABELS[entry.businessModel]}</Badge> : null}
           </div>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-unis-text">{entry.name}</h1>
-          {entry.subtitle ? <p className="mt-1 text-base text-unis-gray">{entry.subtitle}</p> : null}
-          {entry.headline ? <p className="mt-1 text-lg text-unis-gray">{entry.headline}</p> : null}
-          {[entry.sector, entry.city].some(Boolean) ? (
-            <p className="mt-1 text-sm text-unis-gray">{[entry.sector, entry.city].filter(Boolean).join(" · ")}</p>
-          ) : null}
         </div>
-      </header>
+      </DetailHero>
 
       <div className="mt-8 grid gap-8 md:grid-cols-3">
         <div className="space-y-8 md:col-span-2">
           {entry.coreExpertise ? (
             <section>
-              <h2 className="text-lg font-bold text-unis-text">Core y asesoría</h2>
-              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{entry.coreExpertise}</p>
+              <SectionTitle>Core y asesoría</SectionTitle>
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{entry.coreExpertise}</p>
             </section>
           ) : null}
 
           {entry.areas.length > 0 ? (
             <section>
-              <h2 className="text-lg font-bold text-unis-text">Áreas en las que asesora</h2>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <SectionTitle>Áreas en las que asesora</SectionTitle>
+              <div className="mt-3 flex flex-wrap gap-2">
                 {entry.areas.map((area) => (
                   <Link
                     key={area.slug}
@@ -85,7 +99,7 @@ async function DirectorioDetalle({ params }: { params: Promise<{ id: string }> }
 
           {ventures.length > 0 ? (
             <section>
-              <h2 className="text-lg font-bold text-unis-text">Ventures</h2>
+              <SectionTitle>Ventures</SectionTitle>
               <div className="mt-3 grid gap-4">
                 {ventures.map((venture) => (
                   <VentureCard key={venture.id} venture={venture} />
@@ -96,9 +110,8 @@ async function DirectorioDetalle({ params }: { params: Promise<{ id: string }> }
         </div>
 
         {hasContact ? (
-          <aside className="md:col-span-1">
-            <section className="rounded-lg border border-unis-lightgray bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-unis-text">Contacto</h2>
+          <aside className="md:sticky md:top-6 md:col-span-1 md:self-start">
+            <InfoCard title="Contacto">
               <ul className="space-y-2 text-sm">
                 {entry.website ? (
                   <li>
@@ -122,7 +135,7 @@ async function DirectorioDetalle({ params }: { params: Promise<{ id: string }> }
                   </li>
                 ) : null}
               </ul>
-            </section>
+            </InfoCard>
           </aside>
         ) : null}
       </div>

@@ -1,8 +1,21 @@
 ﻿import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 import { CalendarDays, MapPin, Users } from "lucide-react";
+import { formatDate } from "../../lib/dates";
+import { mediaPublicUrl } from "../../lib/storage";
+
+type PublicationCardData = Prisma.publicationsGetPayload<{
+  include: {
+    publication_types: true;
+    publication_sectors: { include: { sectors: true } };
+    publication_careers: { include: { careers: true } };
+    publication_areas: { include: { areas_of_expertise: true } };
+    publication_media: { select: { storage_key: true; thumb_key: true } };
+  };
+}>;
 
 type PublicationCardProps = {
-  publication: any;
+  publication: PublicationCardData;
 };
 
 export default function PublicationCard({ publication }: PublicationCardProps) {
@@ -18,12 +31,26 @@ export default function PublicationCard({ publication }: PublicationCardProps) {
     return "bg-gray-50 text-gray-700 ring-gray-600/20";
   };
 
-  const careers = publication.publication_careers?.map((pc: any) => pc.careers?.name).filter(Boolean) || [];
-  const sectors = publication.publication_sectors?.map((ps: any) => ps.sectors?.name).filter(Boolean) || [];
-  const areas = publication.publication_areas?.map((pa: any) => pa.areas_of_expertise?.name).filter(Boolean) || [];
+  const careers = publication.publication_careers?.map((pc) => pc.careers?.name).filter(Boolean) || [];
+  const sectors = publication.publication_sectors?.map((ps) => ps.sectors?.name).filter(Boolean) || [];
+  const areas = publication.publication_areas?.map((pa) => pa.areas_of_expertise?.name).filter(Boolean) || [];
+  const cover = publication.publication_media[0];
+  const coverUrl = cover ? mediaPublicUrl(cover.thumb_key ?? cover.storage_key) : null;
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-lg border border-unis-lightgray bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-unis-lightgray bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-unis-cyan hover:shadow-md">
+      {coverUrl ? (
+        <Link href={`/publicaciones/${publication.slug}`} className="block aspect-[16/9] overflow-hidden bg-unis-bg">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={coverUrl}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+          />
+        </Link>
+      ) : null}
+
       <div className="flex flex-1 flex-col p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -60,7 +87,7 @@ export default function PublicationCard({ publication }: PublicationCardProps) {
           {publication.deadline && (
             <div className="flex items-center gap-1.5">
               <CalendarDays className="h-4 w-4" />
-              <span>Hasta {new Date(publication.deadline).toLocaleDateString("es-CO")}</span>
+              <span>Hasta {formatDate(publication.deadline)}</span>
             </div>
           )}
           {isInternship && careers.length > 0 && (

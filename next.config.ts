@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
+    // Sin esto, Turbopack vigila la carpeta superior (C:\Users\...): cualquier archivo
+    // ajeno al proyecto provoca recargas constantes de la página en desarrollo.
+    root: process.cwd(),
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],

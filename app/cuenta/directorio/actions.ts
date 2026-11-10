@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUser } from "../../../lib/session";
-import { getUserRole } from "../../../lib/permissions";
+import { getUserRole, getUserStatus } from "../../../lib/permissions";
 import {
   UUID_RE,
   getString,
@@ -33,6 +33,9 @@ export async function saveDirectoryProfile(_prev: FormState, formData: FormData)
   if (!user) redirect("/login?redirect=/cuenta/directorio");
   if (!isDirectoryRole(getUserRole(user))) {
     return { error: "Tu tipo de cuenta no aparece en el directorio." };
+  }
+  if (getUserStatus(user) !== "active") {
+    return { error: "Tu cuenta debe estar activa para editar tu perfil del directorio. Un administrador debe activarla." };
   }
 
   const values: Record<string, string | string[]> = {};

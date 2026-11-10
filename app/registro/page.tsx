@@ -5,6 +5,9 @@ import { authClient } from "../../lib/auth-client";
 import { getSafeRedirect } from "../../lib/redirect";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useHydrated } from "../../lib/use-hydrated";
+import AuthBackdrop from "../../components/ui/auth-backdrop";
+import { authErrorMessage } from "../../lib/auth-errors";
 
 function getRedirectTarget() {
   return getSafeRedirect(new URLSearchParams(window.location.search).get("redirect"));
@@ -26,6 +29,8 @@ export default function RegistroPage() {
   const [role, setRole] = useState("student");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [verificationSent, setVerificationSent] = useState(false);
+  const hydrated = useHydrated();
 
   const { data: session } = authClient.useSession();
 
@@ -47,21 +52,21 @@ export default function RegistroPage() {
         password,
         name: name.trim(),
         role,
+        // Al confirmar el correo, la persona vuelve a su cuenta y ve qué sigue.
+        callbackURL: "/cuenta?bienvenida=1",
       });
 
       // 1. El registro debe haber devuelto un usuario creado
       if (signUpError || !data?.user) {
-        setError(signUpError?.message || "No se pudo completar el registro");
+        setError(authErrorMessage(signUpError, "No se pudo completar el registro"));
         setLoading(false);
         return;
       }
 
-      // 2. Confirmar que la sesión quedó activa antes de redirigir
+      // 2. Sin sesión significa que hay que confirmar el correo antes de entrar.
       const { data: activeSession } = await authClient.getSession();
       if (!activeSession) {
-        setError(
-          "Tu cuenta se creó, pero no se pudo iniciar la sesión. Intenta iniciar sesión manualmente."
-        );
+        setVerificationSent(true);
         setLoading(false);
         return;
       }
@@ -77,16 +82,28 @@ export default function RegistroPage() {
   };
 
   return (
+    <AuthBackdrop>
     <div className="mx-auto flex min-h-[calc(100vh-140px)] max-w-md flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-center text-2xl font-black tracking-tight text-unis-text">Crear cuenta</h1>
-        <p className="mt-2 text-center text-sm text-unis-gray">
+        <h1 className="text-center text-2xl font-black tracking-tight text-white">Crear cuenta</h1>
+        <p className="mt-2 text-center text-sm text-white/80">
           Únete al Marketplace del Consultorio Empresarial Winner
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="rounded-lg border border-unis-lightgray bg-white px-4 py-8 shadow-sm sm:px-10">
+          {verificationSent ? (
+            <div className="space-y-4 text-center">
+              <p className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                Cuenta creada. Te enviamos un enlace a <span className="font-semibold">{email.trim()}</span> para
+                confirmar tu correo. Revisa también la carpeta de spam.
+              </p>
+              <Link href="/login" className="block text-sm font-medium text-unis-red hover:underline">
+                Ir a iniciar sesión
+              </Link>
+            </div>
+          ) : (
           <form className="space-y-6" onSubmit={handleRegister}>
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-unis-text">
@@ -169,13 +186,14 @@ export default function RegistroPage() {
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !hydrated}
                 className="flex w-full justify-center rounded-md bg-unis-red px-4 py-2 text-sm font-semibold text-white transition hover:bg-unis-red-dark disabled:opacity-50"
               >
                 {loading ? "Creando cuenta..." : "Crear cuenta"}
               </button>
             </div>
           </form>
+          )}
 
           <div className="mt-6">
             <p className="text-center text-sm text-unis-gray">
@@ -188,5 +206,6 @@ export default function RegistroPage() {
         </div>
       </div>
     </div>
+    </AuthBackdrop>
   );
 }

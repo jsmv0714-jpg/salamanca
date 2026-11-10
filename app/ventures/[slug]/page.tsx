@@ -13,18 +13,26 @@ import {
   isVentureStatus,
   isVentureType,
 } from "../../../lib/ventures";
+import { MapPin } from "lucide-react";
 import Avatar from "../../../components/ui/avatar";
 import Badge from "../../../components/ui/badge";
 import { secondaryButtonClass } from "../../../components/ui/form";
+import {
+  DetailBackLink,
+  DetailFact,
+  DetailHero,
+  InfoCard,
+  SectionTitle,
+} from "../../../components/ui/detail-layout";
 import TrlMeter from "../../../components/ventures/trl-meter";
+import TechBackground from "../../../components/ui/tech-background";
 
 export default function VentureDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   return (
-    <div className="bg-white">
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <Link href="/ventures" className="text-sm font-medium text-unis-gray hover:text-unis-red">
-          ← Volver a ventures
-        </Link>
+    <div className="relative isolate overflow-hidden bg-unis-red">
+      <TechBackground />
+      <div className="relative mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <DetailBackLink href="/ventures">Volver a ventures</DetailBackLink>
         <Suspense fallback={<div className="mt-6 h-96 animate-pulse rounded-lg bg-unis-bg" aria-busy="true" />}>
           <VentureDetail params={params} />
         </Suspense>
@@ -72,7 +80,7 @@ async function VentureDetail({ params }: { params: Promise<{ slug: string }> }) 
   const hasContact = venture.website || venture.linkedin_url || venture.contact_email;
 
   return (
-    <article className="mt-6">
+    <article className="mt-6 rounded-3xl bg-white p-6 shadow-xl sm:p-10">
       {venture.status !== "published" ? (
         <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-semibold">Estado: {statusLabel}</p>
@@ -85,19 +93,27 @@ async function VentureDetail({ params }: { params: Promise<{ slug: string }> }) 
         </div>
       ) : null}
 
-      <header className="flex gap-5">
-        <Avatar name={venture.name} logoUrl={venture.logo_url} size="lg" />
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={venture.type === "spin_off" ? "blue" : "red"}>{typeLabel}</Badge>
-            {modelLabel ? <Badge tone="neutral">{modelLabel}</Badge> : null}
-            {venture.sectors ? <Badge tone="neutral">{venture.sectors.name}</Badge> : null}
+      <DetailHero>
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <Avatar name={venture.name} logoUrl={venture.logo_url} size="lg" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={venture.type === "spin_off" ? "blue" : "red"}>{typeLabel}</Badge>
+              {modelLabel ? <Badge tone="neutral">{modelLabel}</Badge> : null}
+              {venture.sectors ? <Badge tone="neutral">{venture.sectors.name}</Badge> : null}
+            </div>
+            <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight text-unis-text sm:text-4xl">
+              {venture.name}
+            </h1>
+            {venture.tagline ? <p className="mt-2 text-lg text-unis-gray">{venture.tagline}</p> : null}
+            {venture.city ? (
+              <div className="mt-4">
+                <DetailFact icon={<MapPin />}>{venture.city}</DetailFact>
+              </div>
+            ) : null}
           </div>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-unis-text">{venture.name}</h1>
-          {venture.tagline ? <p className="mt-1 text-lg text-unis-gray">{venture.tagline}</p> : null}
-          {venture.city ? <p className="mt-1 text-sm text-unis-gray">{venture.city}</p> : null}
         </div>
-      </header>
+      </DetailHero>
 
       {isOwner || isAdmin ? (
         <div className="mt-5">
@@ -110,14 +126,14 @@ async function VentureDetail({ params }: { params: Promise<{ slug: string }> }) 
       <div className="mt-8 grid gap-8 md:grid-cols-3">
         <div className="space-y-8 md:col-span-2">
           <section>
-            <h2 className="text-lg font-bold text-unis-text">Qué es</h2>
-            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{venture.description}</p>
+            <SectionTitle>Qué es</SectionTitle>
+            <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{venture.description}</p>
           </section>
 
           {venture.type === "spin_off" && (venture.research_group || venture.senior_consultant) ? (
             <section>
-              <h2 className="text-lg font-bold text-unis-text">Origen del conocimiento</h2>
-              <dl className="mt-2 space-y-1 text-sm">
+              <SectionTitle>Origen del conocimiento</SectionTitle>
+              <dl className="mt-3 space-y-1 text-sm">
                 {venture.research_group ? (
                   <div>
                     <dt className="inline font-medium text-unis-text">Grupo de investigación: </dt>
@@ -136,8 +152,8 @@ async function VentureDetail({ params }: { params: Promise<{ slug: string }> }) 
 
           {areas.length > 0 ? (
             <section>
-              <h2 className="text-lg font-bold text-unis-text">Áreas de consultoría</h2>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <SectionTitle>Áreas de consultoría</SectionTitle>
+              <div className="mt-3 flex flex-wrap gap-2">
                 {areas.map((area) => (
                   <span
                     key={area}
@@ -151,9 +167,8 @@ async function VentureDetail({ params }: { params: Promise<{ slug: string }> }) 
           ) : null}
         </div>
 
-        <aside className="space-y-6 md:col-span-1">
-          <section className="rounded-lg border border-unis-lightgray bg-white p-5 shadow-sm">
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-unis-text">Madurez</h2>
+        <aside className="space-y-6 md:sticky md:top-6 md:col-span-1 md:self-start">
+          <InfoCard title="Madurez">
             <TrlMeter level={venture.trl_level} />
             {stageName ? (
               <p className="mt-4 text-xs text-unis-gray">
@@ -163,11 +178,10 @@ async function VentureDetail({ params }: { params: Promise<{ slug: string }> }) 
                 </span>
               </p>
             ) : null}
-          </section>
+          </InfoCard>
 
           {hasContact || ownerProfile ? (
-            <section className="rounded-lg border border-unis-lightgray bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-unis-text">Contacto</h2>
+            <InfoCard title="Contacto">
               <ul className="space-y-2 text-sm">
                 {venture.website ? (
                   <li>
@@ -199,7 +213,7 @@ async function VentureDetail({ params }: { params: Promise<{ slug: string }> }) 
                   </li>
                 ) : null}
               </ul>
-            </section>
+            </InfoCard>
           ) : null}
         </aside>
       </div>

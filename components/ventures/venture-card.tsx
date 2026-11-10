@@ -42,7 +42,7 @@ export default function VentureCard({
   return (
     <Link
       href={`/ventures/${venture.slug}`}
-      className="flex gap-4 rounded-lg border border-unis-lightgray bg-white p-5 shadow-sm transition hover:border-unis-red hover:shadow-md"
+      className="flex gap-4 rounded-2xl border border-unis-lightgray bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-unis-cyan hover:shadow-md"
     >
       <Avatar name={venture.name} logoUrl={venture.logo_url} />
       <div className="min-w-0 flex-1">

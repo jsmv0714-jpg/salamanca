@@ -146,7 +146,7 @@ model publications {
   views_count         Int                   @default(0)
   published_at        DateTime?             @db.Timestamp(6)
   created_at          DateTime              @default(now()) @db.Timestamp(6)
-  updated_at          DateTime              @default(now()) @db.Timestamp(6)
+  updated_at          DateTime              @default(now()) @updatedAt @db.Timestamp(6)
   publication_areas   publication_areas[]
   publication_careers publication_careers[]
   publication_sectors publication_sectors[]
@@ -154,6 +154,32 @@ model publications {
   users               users                 @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   rejection_reason String?
   applications     applications[]
+  publication_media publication_media[]
+  reports          publication_reports[]
+
+  @@index([status, published_at], map: "idx_publications_status_published_at")
+  @@index([user_id], map: "idx_publications_user_id")
+}
+
+/// Imágenes y videos de una publicación. El archivo vive en el almacenamiento de objetos; aquí solo su clave.
+model publication_media {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  publication_id String           @db.Uuid
+  kind           media_kind
+  storage_key    String           @unique @db.VarChar(300)
+  thumb_key      String?          @db.VarChar(300)
+  mime_type      String           @db.VarChar(100)
+  size_bytes     Int
+  position       Int              @default(0)
+  created_at     DateTime         @default(now()) @db.Timestamp(6)
+  publications   publications     @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([publication_id, position], map: "idx_publication_media_publication_position")
+}
+
+enum media_kind {
+  image
+  video
 }
 
 model sectors {
@@ -233,6 +259,11 @@ model users {
   ventures           ventures[]
   directory_profiles directory_profiles?
   applications       applications[]
+  role_changes_received role_changes[] @relation("RoleChangeTarget")
+  role_changes_made     role_changes[] @relation("RoleChangeActor")
+  notifications      notifications[]
+  reports_made       publication_reports[] @relation("ReportReporter")
+  reports_reviewed   publication_reports[] @relation("ReportReviewer")
 
   @@index([email], map: "idx_users_email")
   @@index([role], map: "idx_users_role")
@@ -334,6 +365,21 @@ enum user_status {
   pending
   active
   suspended
+}
+
+/// Historial de promociones y retiros del rol de administrador.
+model role_changes {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String    @db.Uuid
+  changed_by_id String?   @db.Uuid
+  from_role     user_role
+  to_role       user_role
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  users         users     @relation("RoleChangeTarget", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  changed_by    users?    @relation("RoleChangeActor", fields: [changed_by_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([user_id, created_at], map: "idx_role_changes_user_created")
+  @@index([created_at], map: "idx_role_changes_created")
 }
 
 // ─── Fase 2: ventures (spin-offs y startups) y directorio del ecosistema Winner ───
@@ -452,6 +498,8 @@ model applications {
   data_consent   Boolean            @default(false)
   consent_at     DateTime?          @db.Timestamp(6)
   status         application_status @default(sent)
+  /// Cuándo volvió a postularse tras retirarse. Solo se permite una vez: si está fijado, no puede volver a hacerlo.
+  reapplied_at   DateTime?          @db.Timestamp(6)
   created_at     DateTime           @default(now()) @db.Timestamp(6)
   updated_at     DateTime           @default(now()) @updatedAt @db.Timestamp(6)
   publications   publications       @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -472,6 +520,17 @@ enum application_status {
   withdrawn
 }
 
+/// Contadores de intentos de better-auth (límite por IP). Están en la base para compartirlos entre instancias y reinicios.
+model rateLimit {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String @unique @db.VarChar(255)
+  count       Int
+  /// Milisegundos desde la época (Date.now()). Float evita el manejo de BigInt en el adaptador.
+  lastRequest Float
+
+  @@map("rate_limit")
+}
+
 /// Hoja de vida adjunta a una postulación. Se guarda aparte para no cargar el archivo al listar postulaciones.
 model application_files {
   id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -482,4 +541,63 @@ model application_files {
   data           Bytes
   created_at     DateTime     @default(now()) @db.Timestamp(6)
   applications   applications @relation(fields: [application_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// Avisos internos para cada persona (postulaciones, decisiones, reportes).
+model notifications {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String            @db.Uuid
+  type       notification_type
+  title      String            @db.VarChar(200)
+  body       String?           @db.VarChar(1000)
+  href       String?           @db.VarChar(300)
+  read_at    DateTime?         @db.Timestamp(6)
+  created_at DateTime          @default(now()) @db.Timestamp(6)
+  users      users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, read_at], map: "idx_notifications_user_read")
+  @@index([user_id, created_at], map: "idx_notifications_user_created")
+}
+
+enum notification_type {
+  application_received
+  application_accepted
+  application_rejected
+  publication_approved
+  publication_rejected
+  report_created
+  report_resolved
+}
+
+/// Reportes de abuso sobre una publicación. Los revisa un administrador.
+model publication_reports {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  publication_id String          @db.Uuid
+  reporter_id    String?         @db.Uuid
+  reason         report_reason
+  details        String?         @db.VarChar(1000)
+  status         report_status   @default(open)
+  admin_note     String?         @db.VarChar(500)
+  reviewed_by_id String?         @db.Uuid
+  reviewed_at    DateTime?       @db.Timestamp(6)
+  created_at     DateTime        @default(now()) @db.Timestamp(6)
+  publications   publications    @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users          users?          @relation("ReportReporter", fields: [reporter_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  reviewed_by    users?          @relation("ReportReviewer", fields: [reviewed_by_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([publication_id, reporter_id], map: "uq_publication_reports_publication_reporter")
+  @@index([status, created_at], map: "idx_publication_reports_status_created")
+}
+
+enum report_reason {
+  spam
+  scam
+  inappropriate
+  other
+}
+
+enum report_status {
+  open
+  resolved
+  dismissed
 }

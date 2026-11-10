@@ -1,16 +1,16 @@
 ﻿import type { Metadata } from "next";
-import { Lato } from "next/font/google";
 import "./globals.css";
 import Header from "../components/layout/header";
 import Footer from "../components/layout/footer";
 
-const lato = Lato({
-  subsets: ["latin"],
-  weight: ["300", "400", "700", "900"],
-});
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
 export const metadata: Metadata = {
-  title: "Unisalamanca Marketplace | Conectando empresas, estudiantes y emprendedores",
+  metadataBase: new URL(appUrl),
+  title: {
+    default: "Unisalamanca Marketplace | Conectando empresas, estudiantes y emprendedores",
+    template: "%s | Unisalamanca Marketplace",
+  },
   description: "Marketplace del Consultorio Empresarial Winner - Universidad de Salamanca Colombia",
 };
 
@@ -21,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${lato.className} flex min-h-screen flex-col antialiased`}>
+      <body className="flex min-h-screen flex-col antialiased">
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />

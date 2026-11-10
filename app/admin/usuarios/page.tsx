@@ -15,13 +15,20 @@ import {
   type UserStatus,
 } from "../../../lib/admin";
 import Badge, { type BadgeTone } from "../../../components/ui/badge";
+import Callout from "../../../components/ui/callout";
+import ConfirmButton from "../../../components/ui/confirm-button";
 import { inputClass, primaryButtonClass, secondaryButtonClass } from "../../../components/ui/form";
-import { setUserStatus } from "./actions";
+import { ROLE_CHANGE_MESSAGES, type RoleChangeFailure } from "../../../lib/admin-roles";
+import { setUserRole, setUserStatus } from "./actions";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
 const STATUS_TONES: Record<UserStatus, BadgeTone> = { pending: "amber", active: "green", suspended: "danger" };
 const STATUS_SINGULAR: Record<UserStatus, string> = { pending: "Pendiente", active: "Activa", suspended: "Suspendida" };
+const ROLE_CHANGE_SUCCESS: Record<string, string> = {
+  promoted: "La cuenta ahora es administradora. Le enviamos un correo con el aviso.",
+  demoted: "Se retiró el rol de administrador. La cuenta conserva el rol que tenía antes.",
+};
 
 export default function AdminUsuariosPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
@@ -42,9 +49,10 @@ async function AdminUsuariosContent({ searchParams }: { searchParams: Promise<Se
   const rolParam = param(raw.rol);
   const rol = isUserRole(rolParam) ? rolParam : undefined;
   const q = param(raw.q);
+  const ajuste = param(raw.ajuste);
 
-  const where: Prisma.usersWhereInput = { status: estado };
-  if (rol) where.role = rol;
+  const where: Prisma.usersWhereInput = { status: estado, role: { not: "admin" } };
+  if (rol && rol !== "admin") where.role = rol;
   if (q) {
     where.OR = [
       { name: { contains: q, mode: "insensitive" } },
@@ -52,7 +60,7 @@ async function AdminUsuariosContent({ searchParams }: { searchParams: Promise<Se
     ];
   }
 
-  const [users, grouped] = await Promise.all([
+  const [users, grouped, admins, roleChanges] = await Promise.all([
     prisma.users.findMany({
       where,
       orderBy: { created_at: "desc" },
@@ -60,7 +68,32 @@ async function AdminUsuariosContent({ searchParams }: { searchParams: Promise<Se
       select: { id: true, name: true, email: true, role: true, status: true, created_at: true },
     }),
     prisma.users.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.users.findMany({
+      where: { role: "admin" },
+      orderBy: { created_at: "asc" },
+      select: { id: true, name: true, email: true, status: true, created_at: true },
+    }),
+    prisma.role_changes.findMany({
+      orderBy: { created_at: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        from_role: true,
+        to_role: true,
+        created_at: true,
+        users: { select: { name: true, email: true } },
+        changed_by: { select: { name: true, email: true } },
+      },
+    }),
   ]);
+
+  const feedback = ajuste
+    ? ROLE_CHANGE_SUCCESS[ajuste]
+      ? { tone: "success" as const, text: ROLE_CHANGE_SUCCESS[ajuste] }
+      : ajuste in ROLE_CHANGE_MESSAGES
+        ? { tone: "error" as const, text: ROLE_CHANGE_MESSAGES[ajuste as RoleChangeFailure] }
+        : null
+    : null;
 
   const counts = new Map(grouped.map((g) => [g.status, g._count._all]));
   const current = { estado, rol, q };
@@ -72,6 +105,62 @@ async function AdminUsuariosContent({ searchParams }: { searchParams: Promise<Se
       <p className="mt-2 text-base text-unis-gray">
         Activa las cuentas nuevas para que puedan publicar, postularse y aparecer en el directorio.
       </p>
+
+      {feedback ? (
+        <div className="mt-4">
+          <Callout tone={feedback.tone}>{feedback.text}</Callout>
+        </div>
+      ) : null}
+
+      <section className="mt-6 rounded-lg border border-unis-lightgray bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold text-unis-text">Administradores</h2>
+            <p className="mt-1 text-xs text-unis-gray">
+              Pueden aprobar publicaciones y gestionar cuentas. Siempre debe quedar al menos uno y solo otro
+              administrador puede retirar el rol.
+            </p>
+          </div>
+          <Badge tone="amber">{admins.length === 1 ? "1 administrador" : `${admins.length} administradores`}</Badge>
+        </div>
+
+        <ul className="mt-4 divide-y divide-unis-lightgray">
+          {admins.map((account) => {
+            const accountStatus = isUserStatus(account.status) ? account.status : "pending";
+            const isSelf = account.id === admin.id;
+            return (
+              <li key={account.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-unis-text">
+                    {account.name || "Sin nombre"} {isSelf ? <span className="font-normal text-unis-gray">(tú)</span> : null}
+                  </p>
+                  <p className="truncate text-xs text-unis-gray">{account.email}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={STATUS_TONES[accountStatus]}>{STATUS_SINGULAR[accountStatus]}</Badge>
+                  {isSelf ? (
+                    <span className="text-xs text-unis-gray">No puedes quitarte el rol.</span>
+                  ) : admins.length <= 1 ? (
+                    <span className="text-xs text-unis-gray">Es el único administrador.</span>
+                  ) : (
+                    <form action={setUserRole}>
+                      <input type="hidden" name="id" value={account.id} />
+                      <input type="hidden" name="role" value="demote" />
+                      <input type="hidden" name="back" value={back} />
+                      <ConfirmButton
+                        message={`¿Quitar el rol de administrador a ${account.name || account.email}? Su cuenta seguirá activa con el rol anterior.`}
+                        className={secondaryButtonClass}
+                      >
+                        Quitar administrador
+                      </ConfirmButton>
+                    </form>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <nav className="mt-6 flex flex-wrap gap-2" aria-label="Filtrar por estado">
         {USER_STATUSES.map((status) => (
@@ -122,13 +211,13 @@ async function AdminUsuariosContent({ searchParams }: { searchParams: Promise<Se
 
       {users.length === 0 ? (
         <div className="mt-8 rounded-lg border border-dashed border-unis-lightgray py-14 text-center text-sm text-unis-gray">
-          No hay cuentas {USER_STATUS_LABELS[estado].toLowerCase()} con estos filtros.
+          {rol === "admin"
+            ? "Los administradores se muestran en la sección de arriba."
+            : `No hay cuentas ${USER_STATUS_LABELS[estado].toLowerCase()} con estos filtros.`}
         </div>
       ) : (
         <ul className="mt-6 space-y-3">
           {users.map((user) => {
-            const isSelf = user.id === admin.id;
-            const isAdminUser = user.role === "admin";
             const userStatus = isUserStatus(user.status) ? user.status : "pending";
             return (
               <li
@@ -145,34 +234,39 @@ async function AdminUsuariosContent({ searchParams }: { searchParams: Promise<Se
                   </p>
                 </div>
 
-                {isSelf || isAdminUser ? (
-                  <p className="text-xs text-unis-gray">
-                    {isSelf ? "Es tu cuenta." : "Las cuentas de administrador se gestionan en la base de datos."}
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {userStatus !== "active" ? (
-                      <form action={setUserStatus}>
-                        <input type="hidden" name="id" value={user.id} />
-                        <input type="hidden" name="status" value="active" />
-                        <input type="hidden" name="back" value={back} />
-                        <button type="submit" className={primaryButtonClass}>
-                          Activar
-                        </button>
-                      </form>
-                    ) : null}
-                    {userStatus !== "suspended" ? (
-                      <form action={setUserStatus}>
-                        <input type="hidden" name="id" value={user.id} />
-                        <input type="hidden" name="status" value="suspended" />
-                        <input type="hidden" name="back" value={back} />
-                        <button type="submit" className={secondaryButtonClass}>
-                          Suspender
-                        </button>
-                      </form>
-                    ) : null}
-                  </div>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {userStatus !== "active" ? (
+                    <form action={setUserStatus}>
+                      <input type="hidden" name="id" value={user.id} />
+                      <input type="hidden" name="status" value="active" />
+                      <input type="hidden" name="back" value={back} />
+                      <button type="submit" className={primaryButtonClass}>
+                        Activar
+                      </button>
+                    </form>
+                  ) : null}
+                  {userStatus !== "suspended" ? (
+                    <form action={setUserStatus}>
+                      <input type="hidden" name="id" value={user.id} />
+                      <input type="hidden" name="status" value="suspended" />
+                      <input type="hidden" name="back" value={back} />
+                      <button type="submit" className={secondaryButtonClass}>
+                        Suspender
+                      </button>
+                    </form>
+                  ) : null}
+                  <form action={setUserRole}>
+                    <input type="hidden" name="id" value={user.id} />
+                    <input type="hidden" name="role" value="promote" />
+                    <input type="hidden" name="back" value={back} />
+                    <ConfirmButton
+                      message={`¿Dar permisos de administrador a ${user.name || user.email}? Podrá aprobar publicaciones y gestionar cuentas.`}
+                      className={secondaryButtonClass}
+                    >
+                      Hacer administrador
+                    </ConfirmButton>
+                  </form>
+                </div>
               </li>
             );
           })}
@@ -180,6 +274,26 @@ async function AdminUsuariosContent({ searchParams }: { searchParams: Promise<Se
       )}
       {users.length === 100 ? (
         <p className="mt-4 text-xs text-unis-gray">Se muestran las 100 más recientes. Usa la búsqueda para encontrar otras.</p>
+      ) : null}
+
+      {roleChanges.length > 0 ? (
+        <section className="mt-10">
+          <h2 className="text-lg font-bold text-unis-text">Últimos cambios de rol</h2>
+          <ul className="mt-3 divide-y divide-unis-lightgray rounded-lg border border-unis-lightgray bg-white text-sm shadow-sm">
+            {roleChanges.map((change) => (
+              <li key={change.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <span className="text-unis-text">
+                  <strong>{change.users.name || change.users.email}</strong>: {ROLE_LABELS[change.from_role] ?? change.from_role} →{" "}
+                  {ROLE_LABELS[change.to_role] ?? change.to_role}
+                </span>
+                <span className="text-xs text-unis-gray">
+                  {change.changed_by ? `por ${change.changed_by.name || change.changed_by.email}` : "por consola"} ·{" "}
+                  {formatDate(change.created_at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
     </>
   );

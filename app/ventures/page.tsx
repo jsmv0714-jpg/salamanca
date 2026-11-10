@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
-import { buildQuery, param } from "../../lib/query";
+import { buildQuery, pageNumber, param } from "../../lib/query";
 import {
   BUSINESS_MODEL_LABELS,
   TRL_PHASES,
@@ -11,7 +11,12 @@ import {
   isVentureType,
 } from "../../lib/ventures";
 import VentureCard from "../../components/ventures/venture-card";
-import { inputClass, primaryButtonClass } from "../../components/ui/form";
+import RegisterVentureButton from "../../components/ventures/register-venture-button";
+import { inputClass } from "../../components/ui/form";
+import Pagination from "../../components/ui/pagination";
+import PageHeader from "../../components/ui/page-header";
+
+const VENTURES_PAGE_SIZE = 12;
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -19,18 +24,15 @@ export default function VenturesPage({ searchParams }: { searchParams: Promise<S
   return (
     <div className="bg-white">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-unis-text sm:text-4xl">Ventures</h1>
-            <p className="mt-2 max-w-2xl text-base text-unis-gray">
-              Spin-offs y startups que nacen del ecosistema Winner: conocimiento de la academia y de los
-              beneficiarios convertido en economía real.
-            </p>
-          </div>
-          <Link href="/ventures/nueva" className={primaryButtonClass}>
-            Registrar una venture
-          </Link>
-        </div>
+        <PageHeader
+          title="Ventures"
+          description="Spin-offs y startups que nacen del ecosistema Winner: conocimiento de la academia y de los beneficiarios convertido en economía real."
+          action={
+            <Suspense fallback={null}>
+              <RegisterVentureButton />
+            </Suspense>
+          }
+        />
 
         <Suspense fallback={<ListSkeleton />}>
           <VenturesContent searchParams={searchParams} />
@@ -68,12 +70,17 @@ async function VenturesContent({ searchParams }: { searchParams: Promise<SearchP
     ];
   }
 
+  const total = await prisma.ventures.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / VENTURES_PAGE_SIZE));
+  const currentPage = Math.min(pageNumber(param(raw.page)), totalPages);
+
   const [ventures, sectors] = await Promise.all([
     prisma.ventures.findMany({
       where,
       include: { sectors: true },
       orderBy: { published_at: "desc" },
-      take: 100,
+      skip: (currentPage - 1) * VENTURES_PAGE_SIZE,
+      take: VENTURES_PAGE_SIZE,
     }),
     prisma.sectors.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
   ]);
@@ -89,7 +96,7 @@ async function VenturesContent({ searchParams }: { searchParams: Promise<SearchP
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
       <aside className="lg:col-span-1">
-        <div className="sticky top-6 space-y-6 rounded-lg border border-unis-lightgray bg-white p-6 shadow-sm">
+        <div className="sticky top-6 space-y-6 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm">
           <form action="/ventures" method="get" className="space-y-2">
             {current.tipo ? <input type="hidden" name="tipo" value={current.tipo} /> : null}
             {current.sector ? <input type="hidden" name="sector" value={current.sector} /> : null}
@@ -173,7 +180,7 @@ async function VenturesContent({ searchParams }: { searchParams: Promise<SearchP
 
       <section className="lg:col-span-3">
         <p className="mb-4 text-sm text-unis-gray">
-          {ventures.length} {ventures.length === 1 ? "venture encontrada" : "ventures encontradas"}
+          {total} {total === 1 ? "venture encontrada" : "ventures encontradas"}
         </p>
 
         {ventures.length === 0 ? (
@@ -188,11 +195,19 @@ async function VenturesContent({ searchParams }: { searchParams: Promise<SearchP
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {ventures.map((venture) => (
-              <VentureCard key={venture.id} venture={venture} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-4">
+              {ventures.map((venture) => (
+                <VentureCard key={venture.id} venture={venture} />
+              ))}
+            </div>
+            <Pagination
+              label="Paginación de ventures"
+              currentPage={currentPage}
+              totalPages={totalPages}
+              hrefFor={(page) => `/ventures${buildQuery(current, { page: page > 1 ? String(page) : undefined })}`}
+            />
+          </>
         )}
       </section>
     </div>

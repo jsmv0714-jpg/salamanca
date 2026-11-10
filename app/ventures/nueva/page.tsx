@@ -27,7 +27,7 @@ async function NuevaVentureContent() {
         <h1 className="text-3xl font-black tracking-tight text-unis-text">Registrar una venture</h1>
         <p className="mt-3 text-sm text-unis-gray">
           Las spin-offs las registran los consultores senior (docentes) y las startups las registran los
-          emprendedores y estudiantes. Tu tipo de cuenta no puede crear ventures.
+          emprendedores. Tu tipo de cuenta no puede crear ventures.
         </p>
         <Link href="/ventures" className="mt-6 inline-block text-sm font-medium text-unis-red hover:underline">
           Ver ventures publicadas

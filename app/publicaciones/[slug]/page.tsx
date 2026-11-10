@@ -1,8 +1,11 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { CalendarDays, MapPin } from "lucide-react";
 import { prisma } from "../../../lib/prisma";
+import { mediaPublicUrl } from "../../../lib/storage";
 import { getCurrentUser } from "../../../lib/session";
 import { getUserRole, getUserStatus } from "../../../lib/permissions";
 import { formatDate, isPastDeadline } from "../../../lib/dates";
@@ -10,6 +13,7 @@ import {
   MODALITY_LABELS,
   APPLICATION_STATUS_LABELS,
   canApplyToType,
+  canReapply,
   applyCopy,
   isApplicationStatus,
   isModality,
@@ -17,18 +21,53 @@ import {
 } from "../../../lib/publications";
 import Badge from "../../../components/ui/badge";
 import Callout from "../../../components/ui/callout";
+import {
+  DetailBackLink,
+  DetailFact,
+  DetailHero,
+  InfoCard,
+  SectionTitle,
+} from "../../../components/ui/detail-layout";
 import { secondaryButtonClass } from "../../../components/ui/form";
 import ApplyForm from "../../../components/publications/apply-form";
+import TechBackground from "../../../components/ui/tech-background";
 import { ApplicationStatusBadge, PublicationStatusBadge } from "../../../components/publications/status-badges";
 import { applyToPublication } from "./actions";
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const publication = await prisma.publications.findUnique({
+    where: { slug },
+    select: { title: true, description: true, status: true },
+  });
+
+  // Los borradores y las rechazadas no deben indexarse ni mostrar su contenido.
+  if (!publication || publication.status === "draft" || publication.status === "rejected") {
+    return { title: "Publicación no encontrada" };
+  }
+
+  const description = publication.description.replace(/\s+/g, " ").trim().slice(0, 155);
+  return {
+    title: publication.title,
+    description,
+    openGraph: {
+      title: publication.title,
+      description,
+      type: "article",
+    },
+  };
+}
+
 export default function PublicacionDetallePage({ params }: { params: Promise<{ slug: string }> }) {
   return (
-    <div className="bg-white">
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        <Link href="/publicaciones" className="text-sm font-medium text-unis-gray hover:text-unis-red">
-          ← Volver a publicaciones
-        </Link>
+    <div className="relative isolate overflow-hidden bg-unis-red">
+      <TechBackground />
+      <div className="relative mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <DetailBackLink href="/publicaciones">Volver a publicaciones</DetailBackLink>
         <Suspense fallback={<div className="mt-6 h-96 animate-pulse rounded-lg bg-unis-bg" aria-busy="true" />}>
           <PublicacionDetalle params={params} />
         </Suspense>
@@ -48,6 +87,7 @@ async function PublicacionDetalle({ params }: { params: Promise<{ slug: string }
         publication_sectors: { include: { sectors: true } },
         publication_careers: { include: { careers: true } },
         publication_areas: { include: { areas_of_expertise: true } },
+        publication_media: { orderBy: { position: "asc" } },
         users: {
           select: {
             name: true,
@@ -87,8 +127,23 @@ async function PublicacionDetalle({ params }: { params: Promise<{ slug: string }
   const hasContact = publication.show_contact && (publication.contact_email || publication.contact_phone);
   const expired = isPastDeadline(publication.deadline);
 
+  // Contador de visitas: se incrementa después de responder, sin bloquear ni
+  // romper la página si la escritura falla. No cuenta las visitas del autor.
+  if (isPublic && !isOwner) {
+    after(async () => {
+      try {
+        await prisma.publications.update({
+          where: { id: publication.id },
+          data: { views_count: { increment: 1 } },
+        });
+      } catch (error) {
+        console.error("No se pudo actualizar el contador de visitas:", error);
+      }
+    });
+  }
+
   return (
-    <article className="mt-6">
+    <article className="mt-6 rounded-3xl bg-white p-6 shadow-xl sm:p-10">
       {!isPublic ? (
         <div className="mb-6 space-y-2">
           <Callout tone={publication.status === "rejected" ? "error" : "warning"}>
@@ -110,17 +165,30 @@ async function PublicacionDetalle({ params }: { params: Promise<{ slug: string }
         </div>
       ) : null}
 
-      <header>
+      <DetailHero>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="blue">{publication.publication_types.name}</Badge>
           {modality ? <Badge>{modality}</Badge> : null}
         </div>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-unis-text">{publication.title}</h1>
-        <p className="mt-2 text-sm text-unis-gray">
+        <h1 className="mt-4 text-3xl font-black leading-tight tracking-tight text-unis-text sm:text-4xl">
+          {publication.title}
+        </h1>
+        <p className="mt-3 text-sm text-unis-gray">
           Publicado por <span className="font-semibold text-unis-text">{authorName}</span>
           {publication.published_at ? ` · ${formatDate(publication.published_at)}` : ""}
+          {isOwner || isAdmin ? ` · ${publication.views_count} ${publication.views_count === 1 ? "visita" : "visitas"}` : ""}
         </p>
-      </header>
+        {publication.location || publication.deadline ? (
+          <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-unis-lightgray pt-5">
+            {publication.location ? <DetailFact icon={<MapPin />}>{publication.location}</DetailFact> : null}
+            {publication.deadline ? (
+              <DetailFact icon={<CalendarDays />}>
+                {expired ? "Venció el" : "Hasta el"} {formatDate(publication.deadline)}
+              </DetailFact>
+            ) : null}
+          </div>
+        ) : null}
+      </DetailHero>
 
       {isOwner || isAdmin ? (
         <div className="mt-5 flex flex-wrap gap-3">
@@ -144,27 +212,55 @@ async function PublicacionDetalle({ params }: { params: Promise<{ slug: string }
       <div className="mt-8 grid gap-8 md:grid-cols-3">
         <div className="space-y-8 md:col-span-2">
           <section>
-            <h2 className="text-lg font-bold text-unis-text">Descripción</h2>
-            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{publication.description}</p>
+            <SectionTitle>Descripción</SectionTitle>
+            <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{publication.description}</p>
           </section>
+
+          {publication.publication_media.length > 0 ? (
+            <section>
+              <SectionTitle>Galería</SectionTitle>
+              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+                {publication.publication_media.map((media) => (
+                  <li key={media.id} className="overflow-hidden rounded-2xl border border-unis-lightgray bg-unis-bg">
+                    {media.kind === "image" ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={mediaPublicUrl(media.storage_key)}
+                        alt={`Imagen de la publicación ${publication.title}`}
+                        className="aspect-video w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <video
+                        src={mediaPublicUrl(media.storage_key)}
+                        controls
+                        preload="metadata"
+                        className="aspect-video w-full bg-black"
+                      />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           {publication.requirements ? (
             <section>
-              <h2 className="text-lg font-bold text-unis-text">Requisitos</h2>
-              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{publication.requirements}</p>
+              <SectionTitle>Requisitos</SectionTitle>
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{publication.requirements}</p>
             </section>
           ) : null}
 
           {publication.benefits ? (
             <section>
-              <h2 className="text-lg font-bold text-unis-text">Beneficios</h2>
-              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{publication.benefits}</p>
+              <SectionTitle>Beneficios</SectionTitle>
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{publication.benefits}</p>
             </section>
           ) : null}
 
           {careers.length > 0 || sectors.length > 0 || areas.length > 0 ? (
             <section>
-              <h2 className="text-lg font-bold text-unis-text">Relación con el ecosistema</h2>
+              <SectionTitle>Relación con el ecosistema</SectionTitle>
               <div className="mt-3 space-y-4">
                 {[
                   { title: "Carreras", items: careers },
@@ -192,9 +288,8 @@ async function PublicacionDetalle({ params }: { params: Promise<{ slug: string }
           ) : null}
         </div>
 
-        <aside className="space-y-6 md:col-span-1">
-          <section className="rounded-lg border border-unis-lightgray bg-white p-5 shadow-sm">
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-unis-text">Detalles</h2>
+        <aside className="space-y-6 md:sticky md:top-6 md:col-span-1 md:self-start">
+          <InfoCard title="Detalles">
             <ul className="space-y-2 text-sm text-unis-gray">
               {publication.location ? (
                 <li className="flex items-center gap-2">
@@ -224,7 +319,7 @@ async function PublicacionDetalle({ params }: { params: Promise<{ slug: string }
                 ) : null}
               </div>
             ) : null}
-          </section>
+          </InfoCard>
 
           {publication.status === "published" ? (
             <ApplyPanel
@@ -235,6 +330,17 @@ async function PublicacionDetalle({ params }: { params: Promise<{ slug: string }
               user={user}
               isOwner={isOwner}
             />
+          ) : null}
+
+          {isPublic && user && !isOwner ? (
+            <p className="text-center text-xs">
+              <Link
+                href={`/publicaciones/${publication.slug}/reportar`}
+                className="text-unis-gray transition hover:text-unis-red hover:underline"
+              >
+                Reportar esta publicación
+              </Link>
+            </p>
           ) : null}
         </aside>
       </div>
@@ -258,7 +364,7 @@ async function ApplyPanel({
   isOwner: boolean;
 }) {
   const copy = applyCopy(typeCode);
-  const box = "rounded-lg border border-unis-lightgray bg-white p-5 shadow-sm";
+  const box = "rounded-2xl border border-unis-cyan/40 bg-white p-6 shadow-md ring-1 ring-unis-cyan/10";
 
   if (isOwner) return null;
 
@@ -311,10 +417,10 @@ async function ApplyPanel({
 
   const existing = await prisma.applications.findUnique({
     where: { publication_id_applicant_id: { publication_id: publicationId, applicant_id: user.id } },
-    select: { status: true, created_at: true },
+    select: { status: true, created_at: true, reapplied_at: true },
   });
 
-  if (existing) {
+  if (existing && !canReapply(existing)) {
     return (
       <section className={box}>
         <h2 className="text-sm font-bold uppercase tracking-wide text-unis-text">Tu solicitud</h2>
@@ -326,7 +432,7 @@ async function ApplyPanel({
         </p>
         {isApplicationStatus(existing.status) && existing.status === "withdrawn" ? (
           <p className="mt-2 text-xs text-unis-gray">
-            Estado: {APPLICATION_STATUS_LABELS[existing.status]}. Ya no puedes enviar otra solicitud a esta publicación.
+            Estado: {APPLICATION_STATUS_LABELS[existing.status]}. Ya volviste a postularte una vez; no puedes enviar otra solicitud a esta publicación.
           </p>
         ) : null}
         <Link href="/cuenta/postulaciones" className="mt-4 inline-block text-sm font-semibold text-unis-red hover:underline">
@@ -347,6 +453,13 @@ async function ApplyPanel({
   return (
     <section className={box}>
       <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-unis-text">{copy.title}</h2>
+      {existing ? (
+        <div className="mb-4">
+          <Callout tone="info">
+            Retiraste tu postulación anterior. Puedes volver a enviarla una sola vez más.
+          </Callout>
+        </div>
+      ) : null}
       <ApplyForm
         action={applyToPublication.bind(null, slug)}
         typeCode={typeCode}

@@ -41,7 +41,6 @@ export function matchesSignature(extension: CvExtension, bytes: Uint8Array): boo
 /** Nombre de archivo sin rutas ni caracteres de control, de máximo 120 caracteres. */
 export function safeFilename(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? "";
-  // eslint-disable-next-line no-control-regex
   const clean = base.replace(/[\u0000-\u001f\u007f]/g, "").trim();
   if (clean.length <= 120) return clean || "hoja-de-vida";
   const ext = extensionOf(clean);

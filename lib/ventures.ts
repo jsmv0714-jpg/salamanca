@@ -73,7 +73,7 @@ export const SERVICE_STAGES = [
 /**
  * Qué tipo de venture puede crear cada rol:
  * - los docentes (consultores senior) crean spin-offs, que nacen de grupos de investigación;
- * - los emprendedores y estudiantes crean startups;
+ * - los emprendedores crean startups;
  * - el administrador puede crear ambos.
  */
 export function allowedVentureTypes(role: string): VentureType[] {
@@ -83,7 +83,6 @@ export function allowedVentureTypes(role: string): VentureType[] {
     case "teacher":
       return ["spin_off"];
     case "entrepreneur":
-    case "student":
       return ["startup"];
     default:
       return [];

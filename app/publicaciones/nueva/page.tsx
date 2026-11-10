@@ -27,8 +27,8 @@ async function NuevaPublicacionContent() {
       <>
         <h1 className="text-3xl font-black tracking-tight text-unis-text">Crear una publicación</h1>
         <p className="mt-3 text-sm text-unis-gray">
-          Las publicaciones las crean las empresas, agremiaciones y emprendedores. Tu tipo de cuenta no puede
-          publicar, pero sí puede postularse a las ofertas.
+          Las publicaciones las crean las empresas y los emprendedores. Tu tipo de cuenta no puede publicar,
+          pero sí puede postularse a las ofertas.
         </p>
         <Link href="/publicaciones" className="mt-6 inline-block text-sm font-medium text-unis-red hover:underline">
           Ver publicaciones

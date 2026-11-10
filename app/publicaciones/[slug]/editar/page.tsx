@@ -7,6 +7,8 @@ import Callout from "../../../../components/ui/callout";
 import ConfirmButton from "../../../../components/ui/confirm-button";
 import { secondaryButtonClass } from "../../../../components/ui/form";
 import PublicationForm, { type PublicationFormDefaults } from "../../../../components/publications/publication-form";
+import MediaManager from "../../../../components/publications/media-manager";
+import { hasRemoteStorage, mediaPublicUrl } from "../../../../lib/storage";
 import { deletePublication, updatePublication } from "../../actions";
 
 export default function EditarPublicacionPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -25,7 +27,12 @@ async function EditarPublicacionContent({ params }: { params: Promise<{ slug: st
 
   const publication = await prisma.publications.findUnique({
     where: { slug },
-    include: { publication_sectors: true, publication_careers: true, publication_areas: true },
+    include: {
+      publication_sectors: true,
+      publication_careers: true,
+      publication_areas: true,
+      publication_media: { orderBy: { position: "asc" } },
+    },
   });
   if (!publication || publication.user_id !== user.id) notFound();
 
@@ -87,6 +94,22 @@ async function EditarPublicacionContent({ params }: { params: Promise<{ slug: st
           cancelHref={`/publicaciones/${slug}`}
         />
       </div>
+
+      <section className="mt-10 border-t border-unis-lightgray pt-6">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-unis-text">Imágenes y videos</h2>
+        <div className="mt-4">
+          <MediaManager
+            publicationId={publication.id}
+            directUpload={hasRemoteStorage()}
+            initial={publication.publication_media.map((media) => ({
+              id: media.id,
+              kind: media.kind,
+              url: mediaPublicUrl(media.storage_key),
+              thumbUrl: media.thumb_key ? mediaPublicUrl(media.thumb_key) : null,
+            }))}
+          />
+        </div>
+      </section>
 
       <section className="mt-10 border-t border-unis-lightgray pt-6">
         <h2 className="text-sm font-bold uppercase tracking-wide text-unis-text">Zona de peligro</h2>

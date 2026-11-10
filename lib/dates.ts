@@ -18,6 +18,18 @@ export function formatDate(date: Date): string {
   });
 }
 
+/** Texto como "4 de noviembre de 2026, 10:30" en hora de Colombia. */
+export function formatDateTime(date: Date): string {
+  return date.toLocaleString("es-CO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Bogota",
+  });
+}
+
 /** ¿Ya pasó el plazo? Se puede aplicar hasta el final del día límite. */
 export function isPastDeadline(deadline: Date | null | undefined): boolean {
   if (!deadline) return false;

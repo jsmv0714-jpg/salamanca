@@ -9,12 +9,15 @@ import { isAuthorRole } from "../../lib/publications";
 import SignOutButton from "../../components/auth/sign-out-button";
 import VentureCard from "../../components/ventures/venture-card";
 import Callout from "../../components/ui/callout";
+import { param } from "../../lib/query";
 
-export default function CuentaPage() {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export default function CuentaPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <Suspense fallback={<CuentaSkeleton />}>
-        <CuentaContent />
+        <CuentaContent searchParams={searchParams} />
       </Suspense>
     </div>
   );
@@ -42,8 +45,9 @@ function Section({
   );
 }
 
-async function CuentaContent() {
+async function CuentaContent({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireUser("/cuenta");
+  const params = await searchParams;
 
   const role = getUserRole(user);
   const status = getUserStatus(user);
@@ -53,26 +57,36 @@ async function CuentaContent() {
   const canApply = role !== "admin";
   const isAdmin = role === "admin";
 
-  const [ventures, myPublications, myApplications, pendingUsers, publicationsInReview, venturesInReview] =
-    await Promise.all([
-      canCreateVentures
-        ? prisma.ventures.findMany({
-            where: { user_id: user.id },
-            orderBy: { updated_at: "desc" },
-            include: { sectors: true },
-          })
-        : Promise.resolve([]),
-      canPublish
-        ? prisma.publications.findMany({
-            where: { user_id: user.id },
-            select: { status: true, applications: { select: { status: true } } },
-          })
-        : Promise.resolve([]),
-      canApply ? prisma.applications.count({ where: { applicant_id: user.id } }) : Promise.resolve(0),
-      isAdmin ? prisma.users.count({ where: { status: "pending" } }) : Promise.resolve(0),
-      isAdmin ? prisma.publications.count({ where: { status: "in_review" } }) : Promise.resolve(0),
-      isAdmin ? prisma.ventures.count({ where: { status: "in_review" } }) : Promise.resolve(0),
-    ]);
+  const [
+    ventures,
+    myPublications,
+    myApplications,
+    unreadNotifications,
+    pendingUsers,
+    publicationsInReview,
+    venturesInReview,
+    openReports,
+  ] = await Promise.all([
+    canCreateVentures
+      ? prisma.ventures.findMany({
+          where: { user_id: user.id },
+          orderBy: { updated_at: "desc" },
+          include: { sectors: true },
+        })
+      : Promise.resolve([]),
+    canPublish
+      ? prisma.publications.findMany({
+          where: { user_id: user.id },
+          select: { status: true, applications: { select: { status: true } } },
+        })
+      : Promise.resolve([]),
+    canApply ? prisma.applications.count({ where: { applicant_id: user.id } }) : Promise.resolve(0),
+    prisma.notifications.count({ where: { user_id: user.id, read_at: null } }),
+    isAdmin ? prisma.users.count({ where: { status: "pending" } }) : Promise.resolve(0),
+    isAdmin ? prisma.publications.count({ where: { status: "in_review" } }) : Promise.resolve(0),
+    isAdmin ? prisma.ventures.count({ where: { status: "in_review" } }) : Promise.resolve(0),
+    isAdmin ? prisma.publication_reports.count({ where: { status: "open" } }) : Promise.resolve(0),
+  ]);
 
   const newApplications = myPublications.reduce(
     (total, p) => total + p.applications.filter((a) => a.status === "sent").length,
@@ -101,6 +115,15 @@ async function CuentaContent() {
       </h1>
       <p className="mt-2 text-base text-unis-gray">Esta es tu cuenta en el Marketplace Unisalamanca.</p>
 
+      {param(params.bienvenida) && status === "pending" ? (
+        <div className="mt-6">
+          <Callout tone="success">
+            ¡Correo confirmado! Revisaremos tu cuenta y, cuando un administrador la active, podrás publicar, postularte y
+            aparecer en el directorio.
+          </Callout>
+        </div>
+      ) : null}
+
       {!isAdmin && status !== "active" ? (
         <div className="mt-6">
           <Callout tone="warning">
@@ -123,6 +146,24 @@ async function CuentaContent() {
       </div>
 
       <div className="mt-8 space-y-6">
+        <Section
+          title="Mi perfil"
+          description="Cambia tu nombre, tu correo electrónico o tu contraseña."
+          href="/cuenta/perfil"
+          action="Editar mis datos de acceso"
+        />
+
+        <Section
+          title="Notificaciones"
+          description={
+            unreadNotifications === 0
+              ? "Aquí verás los avisos de postulaciones, decisiones sobre tus publicaciones y reportes."
+              : `${unreadNotifications} ${unreadNotifications === 1 ? "aviso sin leer" : "avisos sin leer"}.`
+          }
+          href="/cuenta/notificaciones"
+          action="Ver mis notificaciones"
+        />
+
         {canPublish ? (
           <Section
             title="Mis publicaciones"
@@ -208,6 +249,14 @@ async function CuentaContent() {
                 </Link>
                 <span className="text-unis-gray">
                   {venturesInReview === 0 ? " · ninguna en revisión" : ` · ${venturesInReview} en revisión`}
+                </span>
+              </li>
+              <li>
+                <Link href="/admin/reportes" className="font-semibold text-unis-red hover:underline">
+                  Reportes de abuso
+                </Link>
+                <span className="text-unis-gray">
+                  {openReports === 0 ? " · ninguno abierto" : ` · ${openReports} por revisar`}
                 </span>
               </li>
             </ul>

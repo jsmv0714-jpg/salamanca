@@ -9,6 +9,7 @@ import Callout from "../../../components/ui/callout";
 import ConfirmButton from "../../../components/ui/confirm-button";
 import { secondaryButtonClass } from "../../../components/ui/form";
 import { ApplicationStatusBadge, PublicationStatusBadge } from "../../../components/publications/status-badges";
+import { canReapply } from "../../../lib/publications";
 import { withdrawApplication } from "../../publicaciones/[slug]/actions";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -91,12 +92,25 @@ async function MisPostulacionesContent({ searchParams }: { searchParams: Promise
                   <form action={withdrawApplication} className="mt-4">
                     <input type="hidden" name="id" value={application.id} />
                     <ConfirmButton
-                      message="¿Retirar esta postulación? No podrás enviar otra a la misma publicación."
+                      message="¿Retirar esta postulación? Podrás volver a enviarla una sola vez más."
                       className={secondaryButtonClass}
                     >
                       Retirar postulación
                     </ConfirmButton>
                   </form>
+                ) : null}
+
+                {canReapply(application) ? (
+                  <p className="mt-4 text-sm text-unis-gray">
+                    Te retiraste de esta publicación. Puedes volver a postularte una vez más:{" "}
+                    <Link
+                      href={`/publicaciones/${application.publications.slug}`}
+                      className="font-semibold text-unis-red hover:underline"
+                    >
+                      enviar una nueva postulación
+                    </Link>
+                    .
+                  </p>
                 ) : null}
               </li>
             );

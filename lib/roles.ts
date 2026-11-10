@@ -1,6 +1,7 @@
 /**
  * Roles que una persona puede elegir al registrarse por su cuenta.
- * El rol `admin` NO está aquí a propósito: solo se asigna directamente en la base de datos.
+ * El rol `admin` NO está aquí a propósito: solo se asigna desde el panel de
+ * administración o con `npm run admin:promote`.
  */
 export const SELF_REGISTRATION_ROLES = [
   "student",
