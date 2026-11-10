@@ -53,3 +53,4 @@ fase2-extracted/
 fase2-*.zip
 fase3-*.zip
 prisma.config.ts.off
+.neon
