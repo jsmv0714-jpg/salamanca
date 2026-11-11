@@ -178,3 +178,46 @@ export function safeHttpUrl(value: string | null | undefined): string | null {
   const url = normalizeUrl(value);
   return isHttpUrl(url) ? url : null;
 }
+
+export type ChecklistInput = {
+  role: string;
+  hasPhoto: boolean;
+  headline: string | null;
+  bio: string | null;
+  skillCount: number;
+  city: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  socialCount: number;
+  roleValues: Record<string, string | null | undefined>;
+};
+
+export type ChecklistItem = { key: string; label: string; done: boolean };
+
+/** Qué completar para que el perfil se vea bien. Los campos que pide cada rol cambian. */
+export function buildChecklist(input: ChecklistInput): { items: ChecklistItem[]; percent: number } {
+  const filled = (value: string | null | undefined) => Boolean(value && value.trim());
+  const items: ChecklistItem[] = [
+    { key: "photo", label: input.role === "company" || input.role === "association" ? "Logo" : "Foto", done: input.hasPhoto },
+    { key: "headline", label: "Titular", done: filled(input.headline) },
+    { key: "bio", label: copyFor(input.role).bio.label, done: filled(input.bio) },
+    { key: "skills", label: copyFor(input.role).skills.label, done: input.skillCount >= 3 },
+    { key: "city", label: "Ciudad", done: filled(input.city) },
+    { key: "contact", label: "Teléfono o correo de contacto", done: filled(input.contactPhone) || filled(input.contactEmail) },
+    { key: "social", label: "Al menos una red social", done: input.socialCount > 0 },
+  ];
+
+  const roleLabels: Record<string, Array<[string, string]>> = {
+    student: [["career_id", "Carrera"], ["semester", "Semestre"]],
+    teacher: [["title", "Cargo o título"]],
+    company: [["sector_id", "Sector"]],
+    association: [["sector_id", "Sector"]],
+    entrepreneur: [["project_name", "Nombre del proyecto"]],
+  };
+  for (const [key, label] of roleLabels[input.role] ?? []) {
+    items.push({ key, label, done: filled(input.roleValues[key]) });
+  }
+
+  const done = items.filter((item) => item.done).length;
+  return { items, percent: Math.round((done / items.length) * 100) };
+}

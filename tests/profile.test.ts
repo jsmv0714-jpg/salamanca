@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PROFILE_COPY,
+  buildChecklist,
   ROLE_FIELDS,
   SKILL_MAX_COUNT,
   copyFor,
@@ -68,6 +69,51 @@ describe("nombres y enlaces", () => {
     expect(safeHttpUrl("miweb.com")).toBe("https://miweb.com");
     expect(safeHttpUrl("javascript:alert(1)")).toBeNull();
     expect(safeHttpUrl("")).toBeNull();
+  });
+});
+
+describe("lista de completitud", () => {
+  const empty = {
+    role: "student",
+    hasPhoto: false,
+    headline: null,
+    bio: null,
+    skillCount: 0,
+    city: null,
+    contactPhone: null,
+    contactEmail: null,
+    socialCount: 0,
+    roleValues: {},
+  };
+
+  it("un perfil vacío está al 0%", () => {
+    const { percent, items } = buildChecklist(empty);
+    expect(percent).toBe(0);
+    expect(items.map((i) => i.key)).toContain("career_id");
+  });
+
+  it("cuenta lo completado y pide los campos propios del rol", () => {
+    const result = buildChecklist({
+      ...empty,
+      hasPhoto: true,
+      headline: "Estudiante",
+      bio: "Hola",
+      skillCount: 3,
+      city: "Salamanca",
+      contactEmail: "a@b.co",
+      socialCount: 1,
+      roleValues: { career_id: "x", semester: "" },
+    });
+    const missing = result.items.filter((i) => !i.done).map((i) => i.key);
+    expect(missing).toEqual(["semester"]);
+    expect(result.percent).toBe(Math.round((8 / 9) * 100));
+  });
+
+  it("la empresa pide sector y el logo en lugar de la foto", () => {
+    const result = buildChecklist({ ...empty, role: "company" });
+    expect(result.items.find((i) => i.key === "photo")?.label).toBe("Logo");
+    expect(result.items.map((i) => i.key)).toContain("sector_id");
+    expect(result.items.map((i) => i.key)).not.toContain("career_id");
   });
 });
 

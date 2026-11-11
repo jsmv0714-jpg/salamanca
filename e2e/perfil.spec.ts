@@ -15,14 +15,21 @@ test("perfil profesional: se guarda y se ve como lo vería otra persona", async 
 
   await page.getByLabel("Titular").fill("Estudiante de Ingeniería · Datos");
   await page.getByLabel("Perfil profesional", { exact: true }).fill("Busco prácticas en analítica de datos.");
-  await page.getByLabel("Habilidades").fill("Python, SQL, python");
+  const skills = page.getByLabel("Habilidades");
+  await skills.fill("Python");
+  await skills.press("Enter");
+  await skills.fill("SQL");
+  await skills.press("Enter");
+  await skills.fill("python");
+  await skills.press("Enter");
   await page.getByLabel("LinkedIn").fill("https://www.linkedin.com/in/estudiante-e2e");
-  await page.getByLabel("Mostrar mi perfil a otros miembros").check();
+  await page.getByText("Mostrar mi perfil a otros miembros").click();
+  await expect(page.getByLabel("Mostrar mi perfil a otros miembros")).toBeChecked();
   await page.getByRole("button", { name: "Guardar perfil" }).click();
 
   await expect(page.getByText("Perfil guardado.")).toBeVisible();
 
-  await page.getByRole("link", { name: "Ver cómo se ve mi perfil" }).click();
+  await page.getByRole("link", { name: "Ver cómo me ven otros" }).click();
   await expect(page.getByRole("heading", { name: E2E_STUDENT.name })).toBeVisible();
   const profile = page.getByRole("article");
   await expect(profile.getByText("Busco prácticas en analítica de datos.")).toBeVisible();

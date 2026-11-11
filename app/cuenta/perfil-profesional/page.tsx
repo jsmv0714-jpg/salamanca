@@ -1,14 +1,18 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CheckCircle2, Circle, Eye, ExternalLink } from "lucide-react";
 import { prisma } from "../../../lib/prisma";
 import { requireUser } from "../../../lib/session";
 import { getUserRole, getUserStatus } from "../../../lib/permissions";
 import { param } from "../../../lib/query";
 import { ROLE_LABELS } from "../../../lib/roles";
-import { isProfileRole, readSocialLinks } from "../../../lib/profile";
+import { buildChecklist, isProfileRole, readSocialLinks } from "../../../lib/profile";
 import { FormNotice } from "../../../components/ui/form";
 import Callout from "../../../components/ui/callout";
+import TechBackground from "../../../components/ui/tech-background";
+import { DetailBackLink, SectionTitle } from "../../../components/ui/detail-layout";
+import Reveal from "../../../components/ui/reveal";
 import PhotoUploader from "./photo-uploader";
 import ProfessionalProfileForm, { type ProfessionalDefaults } from "./profile-form";
 import { saveProfessionalProfile } from "./actions";
@@ -17,11 +21,9 @@ type SearchParams = Record<string, string | string[] | undefined>;
 
 export default function PerfilProfesionalPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-unis-bg" aria-busy="true" />}>
-        <PerfilProfesionalContent searchParams={searchParams} />
-      </Suspense>
-    </div>
+    <Suspense fallback={<div className="mx-auto mt-24 h-96 max-w-6xl animate-pulse rounded-2xl bg-unis-bg px-4" aria-busy="true" />}>
+      <PerfilProfesionalContent searchParams={searchParams} />
+    </Suspense>
   );
 }
 
@@ -75,64 +77,155 @@ async function PerfilProfesionalContent({ searchParams }: { searchParams: Promis
   };
 
   const isLogo = role === "company" || role === "association";
+  const checklist = buildChecklist({
+    role,
+    hasPhoto: Boolean(user.image),
+    headline: user.headline,
+    bio: user.bio,
+    skillCount: user.skills.length,
+    city: user.city,
+    contactPhone: user.phone,
+    contactEmail: user.contact_email,
+    socialCount: Object.keys(links).length,
+    roleValues: {
+      career_id: defaults.career_id,
+      semester: defaults.semester,
+      title: defaults.title,
+      sector_id: defaults.sector_id,
+      project_name: defaults.project_name,
+    },
+  });
+  const hasRoleSection = role !== "admin";
+  const publicLink = user.profile_public && status === "active";
 
   return (
     <>
-      <Link href="/cuenta" className="text-sm font-medium text-unis-gray hover:text-unis-red">
-        ← Volver a mi cuenta
-      </Link>
-
-      <h1 className="mt-3 text-3xl font-black tracking-tight text-unis-text">Perfil profesional</h1>
-      <p className="mt-2 text-base text-unis-gray">
-        Foto, presentación, habilidades y contacto. Tu nombre y tu correo de acceso se editan en{" "}
-        <Link href="/cuenta/perfil" className="font-medium text-unis-red hover:underline">
-          Mi perfil
-        </Link>
-        .
-      </p>
-
-      <div className="mt-6 space-y-3">
-        {param(params.guardado) ? <FormNotice message="Perfil guardado." /> : null}
-        {param(params.foto) === "quitada" ? <FormNotice message="Foto eliminada." /> : null}
-        {status !== "active" ? (
-          <Callout tone="info">
-            Tu cuenta está pendiente de activación. Podrás editar tu perfil cuando un administrador la active.
-          </Callout>
-        ) : null}
-        {user.profile_public && status === "active" ? (
-          <p className="text-sm">
-            <Link href={`/perfiles/${user.id}`} className="font-medium text-unis-red hover:underline">
-              Ver cómo se ve mi perfil
-            </Link>
-          </p>
-        ) : null}
+      <div className="relative isolate overflow-hidden bg-unis-red">
+        <TechBackground />
+        <div className="relative mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6 lg:px-8">
+          <DetailBackLink href="/cuenta">Volver a mi cuenta</DetailBackLink>
+          <Reveal>
+            <h1 className="mt-6 text-3xl font-black tracking-tight text-white sm:text-4xl">Perfil profesional</h1>
+            <p className="mt-2 max-w-2xl text-base text-white/80">
+              Lo que ven otros miembros cuando decides mostrar tu perfil. Tu nombre y tu correo de acceso se editan en{" "}
+              <Link href="/cuenta/perfil" className="font-semibold text-white underline underline-offset-4">
+                Mi perfil
+              </Link>
+              .
+            </p>
+          </Reveal>
+        </div>
       </div>
 
-      <section className="mt-8 rounded-lg border border-unis-lightgray bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-bold text-unis-text">{isLogo ? "Logo" : "Foto de perfil"}</h2>
-        <p className="mt-1 text-sm text-unis-gray">
-          {isLogo
-            ? "Es el logo que acompaña a tu ficha en el directorio y en tus publicaciones."
-            : "Ayuda a que te reconozcan en las postulaciones y en el directorio."}
-        </p>
-        <div className="mt-5">
-          <PhotoUploader
-            currentUrl={user.image}
-            name={user.name}
-            roleLabel={ROLE_LABELS[role] ?? role}
-            isLogo={isLogo}
-          />
-        </div>
-      </section>
+      <div className="relative mx-auto -mt-20 grid max-w-6xl gap-6 px-4 pb-16 sm:px-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:px-8">
+        <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+          <div className="rounded-2xl border border-unis-lightgray bg-white p-6 shadow-lg">
+            <div className="flex items-end justify-between">
+              <p className="text-sm font-semibold text-unis-text">Tu perfil está al</p>
+              <p className="text-3xl font-black text-unis-red tabular-nums">{checklist.percent}%</p>
+            </div>
+            <div
+              className="mt-3 h-2.5 overflow-hidden rounded-full bg-unis-bg"
+              role="progressbar"
+              aria-valuenow={checklist.percent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Completitud del perfil"
+            >
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-unis-cyan to-unis-blue transition-[width] duration-700"
+                style={{ width: `${checklist.percent}%` }}
+              />
+            </div>
+            <ul className="mt-5 space-y-2.5 text-sm">
+              {checklist.items.map((item) => (
+                <li key={item.key} className={`flex items-center gap-2.5 ${item.done ? "text-unis-gray" : "text-unis-text"}`}>
+                  {item.done ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-unis-cyan" aria-hidden="true" />
+                  ) : (
+                    <Circle className="h-4 w-4 shrink-0 text-unis-lightgray" aria-hidden="true" />
+                  )}
+                  <span className={item.done ? "line-through decoration-unis-cyan/50" : ""}>{item.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-      <div className="mt-6">
-        <ProfessionalProfileForm
-          action={saveProfessionalProfile}
-          defaults={defaults}
-          role={role}
-          careers={careers}
-          sectors={sectors}
-        />
+          <nav aria-label="Secciones del perfil" className="hidden rounded-2xl border border-unis-lightgray bg-white p-3 shadow-sm lg:block">
+            <ul className="space-y-1 text-sm">
+              {[
+                { href: "#presentacion", label: "Presentación" },
+                ...(hasRoleSection ? [{ href: "#perfil-rol", label: "Datos de tu rol" }] : []),
+                { href: "#contacto", label: "Contacto" },
+                { href: "#redes", label: "Redes sociales" },
+                { href: "#visibilidad", label: "Visibilidad" },
+              ].map((item) => (
+                <li key={item.href}>
+                  <a
+                    href={item.href}
+                    className="block rounded-lg px-3 py-2 font-medium text-unis-gray transition hover:bg-unis-cyan/10 hover:text-unis-red"
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          {publicLink ? (
+            <Link
+              href={`/perfiles/${user.id}`}
+              className="flex items-center justify-between gap-3 rounded-2xl border border-unis-lightgray bg-white p-4 text-sm font-semibold text-unis-red shadow-sm transition hover:border-unis-cyan hover:shadow-md"
+            >
+              <span className="flex items-center gap-2">
+                <Eye className="h-4 w-4" aria-hidden="true" />
+                Ver cómo me ven otros
+              </span>
+              <ExternalLink className="h-4 w-4 text-unis-gray" aria-hidden="true" />
+            </Link>
+          ) : null}
+        </aside>
+
+        <div className="min-w-0 space-y-6">
+          <div className="space-y-3">
+            {param(params.guardado) ? <FormNotice message="Perfil guardado." /> : null}
+            {param(params.foto) === "quitada" ? <FormNotice message="Foto eliminada." /> : null}
+            {status !== "active" ? (
+              <Callout tone="info">
+                Tu cuenta está pendiente de activación. Podrás editar tu perfil cuando un administrador la active.
+              </Callout>
+            ) : null}
+          </div>
+
+          <Reveal>
+            <section className="rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm sm:p-8">
+              <SectionTitle>{isLogo ? "Logo" : "Foto de perfil"}</SectionTitle>
+              <p className="mt-1 pl-4 text-sm text-unis-gray">
+                {isLogo
+                  ? "Acompaña tu ficha en el directorio y en tus publicaciones."
+                  : "Ayuda a que te reconozcan en las postulaciones y en el directorio."}
+              </p>
+              <div className="mt-6">
+                <PhotoUploader
+                  currentUrl={user.image}
+                  name={user.name}
+                  roleLabel={ROLE_LABELS[role] ?? role}
+                  isLogo={isLogo}
+                />
+              </div>
+            </section>
+          </Reveal>
+
+          <Reveal delay={80}>
+            <ProfessionalProfileForm
+              action={saveProfessionalProfile}
+              defaults={defaults}
+              role={role}
+              careers={careers}
+              sectors={sectors}
+            />
+          </Reveal>
+        </div>
       </div>
     </>
   );
