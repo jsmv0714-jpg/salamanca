@@ -47,7 +47,7 @@ async function PostulacionesRecibidasContent({ params }: { params: Promise<{ slu
     where: { publication_id: publication.id },
     orderBy: { created_at: "desc" },
     include: {
-      users: { select: { name: true, email: true } },
+      users: { select: { name: true, email: true, profile_public: true } },
       application_files: { select: { filename: true, size_bytes: true } },
     },
   });
@@ -85,6 +85,7 @@ async function PostulacionesRecibidasContent({ params }: { params: Promise<{ slu
               { label: "Hoja de vida (enlace)", url: isInternship ? application.cv_url : null },
               { label: isInternship ? "Portafolio" : "Sitio web o más información", url: application.portfolio_url },
               { label: "LinkedIn", url: application.linkedin_url },
+              { label: "Perfil profesional", url: application.users.profile_public ? `/perfiles/${application.applicant_id}` : null },
             ].filter((l): l is { label: string; url: string } => Boolean(l.url));
 
             return (

@@ -154,6 +154,13 @@ async function CuentaContent({ searchParams }: { searchParams: Promise<SearchPar
         />
 
         <Section
+          title="Perfil profesional"
+          description="Tu foto, tu presentación, tus habilidades, datos de contacto y redes sociales. Decides si otros miembros lo pueden ver."
+          href="/cuenta/perfil-profesional"
+          action="Editar mi perfil profesional"
+        />
+
+        <Section
           title="Notificaciones"
           description={
             unreadNotifications === 0

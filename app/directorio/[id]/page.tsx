@@ -16,6 +16,7 @@ import {
 } from "../../../components/ui/detail-layout";
 import VentureCard from "../../../components/ventures/venture-card";
 import TechBackground from "../../../components/ui/tech-background";
+import { SOCIAL_NETWORKS, copyFor } from "../../../lib/profile";
 
 export default function DirectorioDetallePage({ params }: { params: Promise<{ id: string }> }) {
   return (
@@ -42,7 +43,9 @@ async function DirectorioDetalle({ params }: { params: Promise<{ id: string }> }
     orderBy: { published_at: "desc" },
   });
 
-  const hasContact = entry.website || entry.linkedinUrl || entry.contactEmail;
+  const socialEntries = SOCIAL_NETWORKS.filter((n) => n.key !== "linkedin" && entry.socialLinks[n.key]);
+  const hasContact =
+    entry.website || entry.linkedinUrl || entry.contactEmail || socialEntries.length > 0 || entry.profilePublic;
 
   return (
     <article className="mt-6 rounded-3xl bg-white p-6 shadow-xl sm:p-10">
@@ -77,6 +80,22 @@ async function DirectorioDetalle({ params }: { params: Promise<{ id: string }> }
             <section>
               <SectionTitle>Core y asesoría</SectionTitle>
               <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-unis-gray">{entry.coreExpertise}</p>
+            </section>
+          ) : null}
+
+          {entry.skills.length > 0 ? (
+            <section>
+              <SectionTitle>{copyFor(entry.role).skills.label}</SectionTitle>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {entry.skills.map((skill) => (
+                  <li
+                    key={skill}
+                    className="rounded-md bg-unis-bg px-2.5 py-1 text-xs text-unis-gray ring-1 ring-inset ring-unis-lightgray"
+                  >
+                    {skill}
+                  </li>
+                ))}
+              </ul>
             </section>
           ) : null}
 
@@ -127,11 +146,30 @@ async function DirectorioDetalle({ params }: { params: Promise<{ id: string }> }
                     </a>
                   </li>
                 ) : null}
+                {socialEntries.map((network) => (
+                  <li key={network.key}>
+                    <a
+                      href={entry.socialLinks[network.key]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-unis-red hover:underline"
+                    >
+                      {network.label}
+                    </a>
+                  </li>
+                ))}
                 {entry.contactEmail ? (
                   <li>
                     <a href={`mailto:${entry.contactEmail}`} className="font-medium text-unis-red hover:underline">
                       {entry.contactEmail}
                     </a>
+                  </li>
+                ) : null}
+                {entry.profilePublic ? (
+                  <li>
+                    <Link href={`/perfiles/${entry.userId}`} className="font-medium text-unis-red hover:underline">
+                      Ver perfil profesional
+                    </Link>
                   </li>
                 ) : null}
               </ul>

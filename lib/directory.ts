@@ -7,6 +7,7 @@ import {
   type BusinessModel,
   type DirectoryRole,
 } from "./ventures";
+import { readSocialLinks, type SocialLinks } from "./profile";
 import { UUID_RE } from "./validation";
 
 export type DirectoryEntry = {
@@ -26,6 +27,9 @@ export type DirectoryEntry = {
   contactEmail: string | null;
   allianceStatus: string | null;
   areas: { slug: string; name: string }[];
+  skills: string[];
+  socialLinks: SocialLinks;
+  profilePublic: boolean;
 };
 
 export type DirectoryFilters = {
@@ -45,6 +49,14 @@ const profileInclude = {
       id: true,
       name: true,
       role: true,
+      image: true,
+      headline: true,
+      skills: true,
+      city: true,
+      website: true,
+      contact_email: true,
+      social_links: true,
+      profile_public: true,
       companies: { include: { sectors: true } },
       associations: { include: { sectors: true } },
       entrepreneurs: true,
@@ -103,25 +115,31 @@ function toEntry(row: ProfileRow): DirectoryEntry | null {
     baseLinkedin = teachers.linkedin_url;
   }
 
+  const account = row.users;
+  const socialLinks = readSocialLinks(account.social_links);
+
   return {
     id: row.id,
     userId: row.user_id,
     role,
     name: row.display_name || baseName || "Sin nombre",
     subtitle,
-    headline: row.headline,
+    headline: row.headline ?? account.headline,
     coreExpertise: row.core_expertise,
     businessModel: row.business_model,
     sector: row.sectors?.name ?? baseSector,
-    city: row.city ?? baseCity,
-    website: row.website ?? baseWebsite,
-    linkedinUrl: row.linkedin_url ?? baseLinkedin,
-    logoUrl: row.logo_url ?? baseLogo,
-    contactEmail: row.contact_email ?? baseEmail,
+    city: row.city ?? baseCity ?? account.city,
+    website: row.website ?? baseWebsite ?? account.website,
+    linkedinUrl: row.linkedin_url ?? baseLinkedin ?? socialLinks.linkedin ?? null,
+    logoUrl: row.logo_url ?? baseLogo ?? account.image,
+    contactEmail: row.contact_email ?? baseEmail ?? account.contact_email,
     allianceStatus,
     areas: row.directory_profile_areas
       .map((a) => ({ slug: a.areas_of_expertise.slug, name: a.areas_of_expertise.name }))
       .sort((a, b) => a.name.localeCompare(b.name, "es")),
+    skills: account.skills,
+    socialLinks,
+    profilePublic: account.profile_public,
   };
 }
 
@@ -183,7 +201,7 @@ export async function loadDirectory(filters: DirectoryFilters): Promise<Director
     const needle = fold(filters.q);
     entries = entries.filter((e) =>
       fold(
-        [e.name, e.subtitle, e.headline, e.coreExpertise, e.city, e.sector, ...e.areas.map((a) => a.name)]
+        [e.name, e.subtitle, e.headline, e.coreExpertise, e.city, e.sector, ...e.skills, ...e.areas.map((a) => a.name)]
           .filter(Boolean)
           .join(" ")
       ).includes(needle)

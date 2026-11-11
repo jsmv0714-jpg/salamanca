@@ -57,3 +57,15 @@ export async function processImage(bytes: Uint8Array, mime: string): Promise<Pro
     thumb: { body: new Uint8Array(thumb), mime: "image/webp", extension: "webp" },
   };
 }
+
+/** Foto de perfil: recorte cuadrado de 512 px en WebP, sin metadatos. */
+export const AVATAR_SIZE = 512;
+
+export async function processAvatar(bytes: Uint8Array): Promise<Uint8Array> {
+  const output = await sharp(bytes, { failOn: "error" })
+    .rotate()
+    .resize({ width: AVATAR_SIZE, height: AVATAR_SIZE, fit: "cover", position: "centre" })
+    .webp({ quality: 82 })
+    .toBuffer();
+  return new Uint8Array(output);
+}
