@@ -69,3 +69,16 @@ export async function processAvatar(bytes: Uint8Array): Promise<Uint8Array> {
     .toBuffer();
   return new Uint8Array(output);
 }
+
+/** Portada de noticia: formato 16:9 de 1600 px en WebP, sin metadatos. */
+export const NEWS_COVER_WIDTH = 1600;
+export const NEWS_COVER_HEIGHT = 900;
+
+export async function processNewsCover(bytes: Uint8Array): Promise<Uint8Array> {
+  const output = await sharp(bytes, { failOn: "error" })
+    .rotate()
+    .resize({ width: NEWS_COVER_WIDTH, height: NEWS_COVER_HEIGHT, fit: "cover", position: "centre" })
+    .webp({ quality: 82 })
+    .toBuffer();
+  return new Uint8Array(output);
+}

@@ -8,7 +8,11 @@ import NotificationSync from "../../../components/notifications/notification-syn
 import TechBackground from "../../../components/ui/tech-background";
 import Reveal from "../../../components/ui/reveal";
 import { DetailBackLink } from "../../../components/ui/detail-layout";
-import { markAllNotificationsRead, openNotification } from "./actions";
+import { markAllNotificationsRead, openNotification, updateNewsPreference } from "./actions";
+import { param } from "../../../lib/query";
+import { FormNotice, primaryButtonClass } from "../../../components/ui/form";
+
+type SearchParams = Record<string, string | string[] | undefined>;
 
 const TYPE_META: Record<notification_type, { icon: LucideIcon; label: string; tone: string }> = {
   application_received: { icon: Inbox, label: "Postulación recibida", tone: "bg-unis-cyan/10 text-unis-blue ring-unis-cyan/30" },
@@ -20,16 +24,20 @@ const TYPE_META: Record<notification_type, { icon: LucideIcon; label: string; to
   report_resolved: { icon: ShieldAlert, label: "Reporte resuelto", tone: "bg-unis-cyan/10 text-unis-blue ring-unis-cyan/30" },
 };
 
-export default function NotificacionesPage() {
+export default function NotificacionesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
     <Suspense fallback={<div className="mx-auto mt-24 h-96 max-w-3xl animate-pulse rounded-2xl bg-unis-bg" aria-busy="true" />}>
-      <NotificacionesContent />
+      <NotificacionesContent searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function NotificacionesContent() {
+async function NotificacionesContent({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireUser("/cuenta/notificaciones");
+  const params = await searchParams;
+  const preferencia = param(params.preferencia);
+
+  const account = await prisma.users.findUnique({ where: { id: user.id }, select: { notify_news: true } });
 
   const [notifications, unread] = await Promise.all([
     prisma.notifications.findMany({
@@ -74,7 +82,34 @@ async function NotificacionesContent() {
         </div>
       </div>
 
-      <div className="relative mx-auto -mt-12 max-w-3xl px-4 pb-16 sm:px-6 lg:px-8">
+      <div className="relative mx-auto -mt-12 max-w-3xl space-y-6 px-4 pb-16 sm:px-6 lg:px-8">
+        <Reveal>
+          <form action={updateNewsPreference} className="flex flex-col gap-4 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                name="notify_news"
+                defaultChecked={account?.notify_news ?? true}
+                className="mt-0.5 h-4 w-4 rounded border-unis-lightgray text-unis-red focus:ring-unis-red"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-unis-text">Recibir correos de noticias y eventos</span>
+                <span className="block text-xs text-unis-gray">
+                  Te avisamos por correo cuando la institución publique una noticia, comunicado o evento.
+                </span>
+              </span>
+            </label>
+            <button type="submit" className={primaryButtonClass}>
+              Guardar preferencia
+            </button>
+          </form>
+          {preferencia ? (
+            <div className="mt-3">
+              <FormNotice message={preferencia === "activa" ? "Recibirás los correos de noticias y eventos." : "Ya no recibirás correos de noticias y eventos."} />
+            </div>
+          ) : null}
+        </Reveal>
+
         {notifications.length === 0 ? (
           <Reveal>
             <div className="rounded-3xl border border-dashed border-unis-lightgray bg-white px-6 py-16 text-center shadow-sm">

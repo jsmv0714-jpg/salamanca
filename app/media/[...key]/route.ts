@@ -1,7 +1,7 @@
 import { hasRemoteStorage, readLocalMedia } from "../../../lib/storage";
 
 const KEY_PATTERN =
-  /^(publications\/[0-9a-f-]{36}\/[0-9a-f-]{36}(-thumb)?\.(jpg|png|webp|mp4|webm)|avatars\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp)$/;
+  /^(publications\/[0-9a-f-]{36}\/[0-9a-f-]{36}(-thumb)?\.(jpg|png|webp|mp4|webm)|avatars\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp|news\/[0-9a-f-]{36}\.webp)$/;
 const MIME_BY_EXTENSION: Record<string, string> = {
   jpg: "image/jpeg",
   png: "image/png",

@@ -13,8 +13,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     select: { slug: true, updated_at: true },
   });
 
+  const news = await prisma.news.findMany({
+    where: { status: "published", published_at: { lte: new Date() } },
+    select: { slug: true, updated_at: true },
+  });
+
   return [
     { url: `${base}/`, changeFrequency: "daily", priority: 1 },
+    { url: `${base}/noticias`, changeFrequency: "daily", priority: 0.9 },
+    ...news.map((item) => ({
+      url: `${base}/noticias/${item.slug}`,
+      lastModified: item.updated_at,
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    })),
     { url: `${base}/publicaciones`, changeFrequency: "daily", priority: 0.9 },
     { url: `${base}/directorio`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${base}/ventures`, changeFrequency: "weekly", priority: 0.7 },

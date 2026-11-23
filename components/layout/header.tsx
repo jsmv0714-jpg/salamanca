@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: "/publicaciones", label: "Publicaciones" },
   { href: "/directorio", label: "Directorio" },
   { href: "/ventures", label: "Ventures" },
+  { href: "/noticias", label: "Noticias" },
 ];
 
 type SessionData = ReturnType<typeof authClient.useSession>["data"];

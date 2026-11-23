@@ -18,6 +18,18 @@ function revalidateNotifications() {
   revalidatePath("/cuenta");
 }
 
+/** Activa o desactiva los correos de noticias y eventos de la cuenta. */
+export async function updateNewsPreference(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect(`/login?redirect=${encodeURIComponent(NOTIFICATIONS_PATH)}`);
+
+  const enabled = formData.get("notify_news") === "on";
+  await prisma.users.update({ where: { id: user.id }, data: { notify_news: enabled } });
+
+  revalidatePath(NOTIFICATIONS_PATH);
+  redirect(`${NOTIFICATIONS_PATH}?preferencia=${enabled ? "activa" : "desactivada"}`);
+}
+
 export async function markAllNotificationsRead(): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect(`/login?redirect=${encodeURIComponent(NOTIFICATIONS_PATH)}`);

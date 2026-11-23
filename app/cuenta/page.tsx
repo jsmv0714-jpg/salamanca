@@ -58,6 +58,7 @@ async function CuentaContent({ searchParams }: { searchParams: Promise<SearchPar
     publicationsInReview,
     venturesInReview,
     openReports,
+    draftNews,
     profile,
   ] = await Promise.all([
     canCreateVentures
@@ -79,6 +80,7 @@ async function CuentaContent({ searchParams }: { searchParams: Promise<SearchPar
     isAdmin ? prisma.publications.count({ where: { status: "in_review" } }) : Promise.resolve(0),
     isAdmin ? prisma.ventures.count({ where: { status: "in_review" } }) : Promise.resolve(0),
     isAdmin ? prisma.publication_reports.count({ where: { status: "open" } }) : Promise.resolve(0),
+    isAdmin ? prisma.news.count({ where: { status: "draft" } }) : Promise.resolve(0),
     prisma.users.findUnique({
       where: { id: sessionUser.id },
       select: {
@@ -375,6 +377,7 @@ async function CuentaContent({ searchParams }: { searchParams: Promise<SearchPar
                 <AdminLink href="/admin/publicaciones" label="Publicaciones" count={publicationsInReview} countLabel="en revisión" icon={FileText} />
                 <AdminLink href="/admin/ventures" label="Ventures" count={venturesInReview} countLabel="en revisión" icon={Rocket} />
                 <AdminLink href="/admin/reportes" label="Reportes de abuso" count={openReports} countLabel="por revisar" icon={ShieldCheck} />
+                <AdminLink href="/admin/noticias" label="Noticias y eventos" count={draftNews} countLabel="borradores" icon={FileText} />
               </ul>
             </section>
           </Reveal>

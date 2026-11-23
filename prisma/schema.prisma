@@ -8,14 +8,14 @@ datasource db {
 }
 
 model areas_of_expertise {
-  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name              String              @unique @db.VarChar(150)
-  slug              String              @unique @db.VarChar(150)
-  description       String?
-  is_active         Boolean             @default(true)
-  created_at        DateTime            @default(now()) @db.Timestamp(6)
-  updated_at        DateTime            @default(now()) @db.Timestamp(6)
-  publication_areas publication_areas[]
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                    String                    @unique @db.VarChar(150)
+  slug                    String                    @unique @db.VarChar(150)
+  description             String?
+  is_active               Boolean                   @default(true)
+  created_at              DateTime                  @default(now()) @db.Timestamp(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamp(6)
+  publication_areas       publication_areas[]
   venture_areas           venture_areas[]
   directory_profile_areas directory_profile_areas[]
 }
@@ -152,10 +152,10 @@ model publications {
   publication_sectors publication_sectors[]
   publication_types   publication_types     @relation(fields: [publication_type_id], references: [id], onUpdate: NoAction)
   users               users                 @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  rejection_reason String?
-  applications     applications[]
-  publication_media publication_media[]
-  reports          publication_reports[]
+  rejection_reason    String?
+  applications        applications[]
+  publication_media   publication_media[]
+  reports             publication_reports[]
 
   @@index([status, published_at], map: "idx_publications_status_published_at")
   @@index([user_id], map: "idx_publications_user_id")
@@ -163,16 +163,16 @@ model publications {
 
 /// Imágenes y videos de una publicación. El archivo vive en el almacenamiento de objetos; aquí solo su clave.
 model publication_media {
-  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  publication_id String           @db.Uuid
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  publication_id String       @db.Uuid
   kind           media_kind
-  storage_key    String           @unique @db.VarChar(300)
-  thumb_key      String?          @db.VarChar(300)
-  mime_type      String           @db.VarChar(100)
+  storage_key    String       @unique @db.VarChar(300)
+  thumb_key      String?      @db.VarChar(300)
+  mime_type      String       @db.VarChar(100)
   size_bytes     Int
-  position       Int              @default(0)
-  created_at     DateTime         @default(now()) @db.Timestamp(6)
-  publications   publications     @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  position       Int          @default(0)
+  created_at     DateTime     @default(now()) @db.Timestamp(6)
+  publications   publications @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([publication_id, position], map: "idx_publication_media_publication_position")
 }
@@ -235,44 +235,46 @@ model teachers {
 }
 
 model users {
-  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name              String         @default("") @db.VarChar(200)
-  email             String         @unique @db.VarChar(150)
-  email_verified    Boolean        @default(false)
-  image             String?        @db.VarChar(500)
+  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                  String                @default("") @db.VarChar(200)
+  email                 String                @unique @db.VarChar(150)
+  email_verified        Boolean               @default(false)
+  image                 String?               @db.VarChar(500)
   /// Sin uso: better-auth guarda el hash de la contraseña en account.password.
-  password_hash     String?        @db.VarChar(255)
-  role              user_role
-  status            user_status    @default(pending)
-  email_verified_at DateTime?      @db.Timestamp(6)
-  last_login_at     DateTime?      @db.Timestamp(6)
-  headline          String?        @db.VarChar(160)
-  bio               String?        @db.VarChar(2000)
-  skills            String[]       @default([])
-  phone             String?        @db.VarChar(50)
-  city              String?        @db.VarChar(100)
-  website           String?        @db.VarChar(500)
-  contact_email     String?        @db.VarChar(150)
-  social_links      Json?
-  profile_public    Boolean        @default(false)
-  created_at        DateTime       @default(now()) @db.Timestamp(6)
-  updated_at        DateTime       @default(now()) @db.Timestamp(6)
-  associations      associations?
-  companies         companies?
-  entrepreneurs     entrepreneurs?
-  publications      publications[]
-  students          students?
-  teachers          teachers?
-  sessions          session[]
-  accounts          account[]
-  ventures           ventures[]
-  directory_profiles directory_profiles?
-  applications       applications[]
-  role_changes_received role_changes[] @relation("RoleChangeTarget")
-  role_changes_made     role_changes[] @relation("RoleChangeActor")
-  notifications      notifications[]
-  reports_made       publication_reports[] @relation("ReportReporter")
-  reports_reviewed   publication_reports[] @relation("ReportReviewer")
+  password_hash         String?               @db.VarChar(255)
+  role                  user_role
+  status                user_status           @default(pending)
+  email_verified_at     DateTime?             @db.Timestamp(6)
+  last_login_at         DateTime?             @db.Timestamp(6)
+  headline              String?               @db.VarChar(160)
+  bio                   String?               @db.VarChar(2000)
+  skills                String[]              @default([])
+  phone                 String?               @db.VarChar(50)
+  city                  String?               @db.VarChar(100)
+  website               String?               @db.VarChar(500)
+  contact_email         String?               @db.VarChar(150)
+  social_links          Json?
+  profile_public        Boolean               @default(false)
+  notify_news           Boolean               @default(true)
+  news                  news[]
+  created_at            DateTime              @default(now()) @db.Timestamp(6)
+  updated_at            DateTime              @default(now()) @db.Timestamp(6)
+  associations          associations?
+  companies             companies?
+  entrepreneurs         entrepreneurs?
+  publications          publications[]
+  students              students?
+  teachers              teachers?
+  sessions              session[]
+  accounts              account[]
+  ventures              ventures[]
+  directory_profiles    directory_profiles?
+  applications          applications[]
+  role_changes_received role_changes[]        @relation("RoleChangeTarget")
+  role_changes_made     role_changes[]        @relation("RoleChangeActor")
+  notifications         notifications[]
+  reports_made          publication_reports[] @relation("ReportReporter")
+  reports_reviewed      publication_reports[] @relation("ReportReviewer")
 
   @@index([email], map: "idx_users_email")
   @@index([role], map: "idx_users_role")
@@ -394,34 +396,34 @@ model role_changes {
 // ─── Fase 2: ventures (spin-offs y startups) y directorio del ecosistema Winner ───
 
 model ventures {
-  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id           String         @db.Uuid
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String          @db.Uuid
   type              venture_type
-  name              String         @db.VarChar(150)
-  slug              String         @unique @db.VarChar(180)
-  tagline           String?        @db.VarChar(200)
+  name              String          @db.VarChar(150)
+  slug              String          @unique @db.VarChar(180)
+  tagline           String?         @db.VarChar(200)
   description       String
-  sector_id         String?        @db.Uuid
-  business_model    business_model @default(both)
+  sector_id         String?         @db.Uuid
+  business_model    business_model  @default(both)
   /// Nivel de madurez tecnológica (TRL), de 1 a 9.
-  trl_level         Int            @default(1)
+  trl_level         Int             @default(1)
   /// Etapa del servicio Winner de donde sale (1 Entendimiento ... 6 Seguimiento).
   service_stage     Int?
   /// Solo spin-offs: grupo de investigación y consultor senior responsable.
-  research_group    String?        @db.VarChar(150)
-  senior_consultant String?        @db.VarChar(150)
-  city              String?        @db.VarChar(100)
-  logo_url          String?        @db.VarChar(500)
-  website           String?        @db.VarChar(500)
-  linkedin_url      String?        @db.VarChar(500)
-  contact_email     String?        @db.VarChar(150)
-  status            venture_status @default(draft)
+  research_group    String?         @db.VarChar(150)
+  senior_consultant String?         @db.VarChar(150)
+  city              String?         @db.VarChar(100)
+  logo_url          String?         @db.VarChar(500)
+  website           String?         @db.VarChar(500)
+  linkedin_url      String?         @db.VarChar(500)
+  contact_email     String?         @db.VarChar(150)
+  status            venture_status  @default(draft)
   rejection_reason  String?
-  published_at      DateTime?      @db.Timestamp(6)
-  created_at        DateTime       @default(now()) @db.Timestamp(6)
-  updated_at        DateTime       @default(now()) @updatedAt @db.Timestamp(6)
-  users             users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  sectors           sectors?       @relation(fields: [sector_id], references: [id], onUpdate: NoAction)
+  published_at      DateTime?       @db.Timestamp(6)
+  created_at        DateTime        @default(now()) @db.Timestamp(6)
+  updated_at        DateTime        @default(now()) @updatedAt @db.Timestamp(6)
+  users             users           @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sectors           sectors?        @relation(fields: [sector_id], references: [id], onUpdate: NoAction)
   venture_areas     venture_areas[]
 
   @@index([status], map: "idx_ventures_status")
@@ -494,25 +496,25 @@ enum business_model {
 // ─── Fase 3: postulaciones a publicaciones ───
 
 model applications {
-  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  publication_id String             @db.Uuid
-  applicant_id   String             @db.Uuid
-  message        String
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  publication_id    String             @db.Uuid
+  applicant_id      String             @db.Uuid
+  message           String
   /// Enlaces que comparte quien se postula (hoja de vida, portafolio, LinkedIn).
-  cv_url         String?            @db.VarChar(500)
-  portfolio_url  String?            @db.VarChar(500)
-  linkedin_url   String?            @db.VarChar(500)
-  phone          String?            @db.VarChar(50)
+  cv_url            String?            @db.VarChar(500)
+  portfolio_url     String?            @db.VarChar(500)
+  linkedin_url      String?            @db.VarChar(500)
+  phone             String?            @db.VarChar(50)
   /// Autorización para compartir sus datos con quien publicó la oferta.
-  data_consent   Boolean            @default(false)
-  consent_at     DateTime?          @db.Timestamp(6)
-  status         application_status @default(sent)
+  data_consent      Boolean            @default(false)
+  consent_at        DateTime?          @db.Timestamp(6)
+  status            application_status @default(sent)
   /// Cuándo volvió a postularse tras retirarse. Solo se permite una vez: si está fijado, no puede volver a hacerlo.
-  reapplied_at   DateTime?          @db.Timestamp(6)
-  created_at     DateTime           @default(now()) @db.Timestamp(6)
-  updated_at     DateTime           @default(now()) @updatedAt @db.Timestamp(6)
-  publications   publications       @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users          users              @relation(fields: [applicant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reapplied_at      DateTime?          @db.Timestamp(6)
+  created_at        DateTime           @default(now()) @db.Timestamp(6)
+  updated_at        DateTime           @default(now()) @updatedAt @db.Timestamp(6)
+  publications      publications       @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users             users              @relation(fields: [applicant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   application_files application_files?
 
   @@unique([publication_id, applicant_id], map: "uq_applications_publication_applicant")
@@ -580,19 +582,19 @@ enum notification_type {
 
 /// Reportes de abuso sobre una publicación. Los revisa un administrador.
 model publication_reports {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  publication_id String          @db.Uuid
-  reporter_id    String?         @db.Uuid
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  publication_id String        @db.Uuid
+  reporter_id    String?       @db.Uuid
   reason         report_reason
-  details        String?         @db.VarChar(1000)
-  status         report_status   @default(open)
-  admin_note     String?         @db.VarChar(500)
-  reviewed_by_id String?         @db.Uuid
-  reviewed_at    DateTime?       @db.Timestamp(6)
-  created_at     DateTime        @default(now()) @db.Timestamp(6)
-  publications   publications    @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users          users?          @relation("ReportReporter", fields: [reporter_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  reviewed_by    users?          @relation("ReportReviewer", fields: [reviewed_by_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  details        String?       @db.VarChar(1000)
+  status         report_status @default(open)
+  admin_note     String?       @db.VarChar(500)
+  reviewed_by_id String?       @db.Uuid
+  reviewed_at    DateTime?     @db.Timestamp(6)
+  created_at     DateTime      @default(now()) @db.Timestamp(6)
+  publications   publications  @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users          users?        @relation("ReportReporter", fields: [reporter_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  reviewed_by    users?        @relation("ReportReviewer", fields: [reviewed_by_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([publication_id, reporter_id], map: "uq_publication_reports_publication_reporter")
   @@index([status, created_at], map: "idx_publication_reports_status_created")
@@ -609,4 +611,40 @@ enum report_status {
   open
   resolved
   dismissed
+}
+
+/// Noticias, comunicados y eventos de la institucion. Los publican solo administradores.
+model news {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  author_id         String      @db.Uuid
+  type              news_type
+  title             String      @db.VarChar(200)
+  slug              String      @unique @db.VarChar(250)
+  summary           String      @db.VarChar(400)
+  body              String
+  cover_key         String?     @db.VarChar(500)
+  status            news_status @default(draft)
+  published_at      DateTime?   @db.Timestamp(6)
+  event_starts_at   DateTime?   @db.Timestamp(6)
+  event_location    String?     @db.VarChar(200)
+  event_url         String?     @db.VarChar(500)
+  emails_sent_at    DateTime?   @db.Timestamp(6)
+  emails_sent_count Int         @default(0)
+  created_at        DateTime    @default(now()) @db.Timestamp(6)
+  updated_at        DateTime    @default(now()) @updatedAt @db.Timestamp(6)
+  users             users       @relation(fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status, published_at], map: "idx_news_status_published")
+  @@index([type, event_starts_at], map: "idx_news_type_event")
+}
+
+enum news_type {
+  news
+  event
+  announcement
+}
+
+enum news_status {
+  draft
+  published
 }
