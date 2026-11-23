@@ -16,7 +16,7 @@ import {
 } from "../../../components/ui/detail-layout";
 import VentureCard from "../../../components/ventures/venture-card";
 import TechBackground from "../../../components/ui/tech-background";
-import { SOCIAL_NETWORKS, copyFor } from "../../../lib/profile";
+import { SOCIAL_NETWORKS, copyFor, safeHttpUrl } from "../../../lib/profile";
 
 export default function DirectorioDetallePage({ params }: { params: Promise<{ id: string }> }) {
   return (
@@ -44,8 +44,10 @@ async function DirectorioDetalle({ params }: { params: Promise<{ id: string }> }
   });
 
   const socialEntries = SOCIAL_NETWORKS.filter((n) => n.key !== "linkedin" && entry.socialLinks[n.key]);
+  const website = safeHttpUrl(entry.website);
+  const linkedin = safeHttpUrl(entry.linkedinUrl);
   const hasContact =
-    entry.website || entry.linkedinUrl || entry.contactEmail || socialEntries.length > 0 || entry.profilePublic;
+    website || linkedin || entry.contactEmail || socialEntries.length > 0 || entry.profilePublic;
 
   return (
     <article className="mt-6 rounded-3xl bg-white p-6 shadow-xl sm:p-10">
@@ -132,16 +134,16 @@ async function DirectorioDetalle({ params }: { params: Promise<{ id: string }> }
           <aside className="md:sticky md:top-6 md:col-span-1 md:self-start">
             <InfoCard title="Contacto">
               <ul className="space-y-2 text-sm">
-                {entry.website ? (
+                {website ? (
                   <li>
-                    <a href={entry.website} target="_blank" rel="noopener noreferrer" className="font-medium text-unis-red hover:underline">
+                    <a href={website} target="_blank" rel="noopener noreferrer" className="font-medium text-unis-red hover:underline">
                       Sitio web
                     </a>
                   </li>
                 ) : null}
-                {entry.linkedinUrl ? (
+                {linkedin ? (
                   <li>
-                    <a href={entry.linkedinUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-unis-red hover:underline">
+                    <a href={linkedin} target="_blank" rel="noopener noreferrer" className="font-medium text-unis-red hover:underline">
                       LinkedIn
                     </a>
                   </li>

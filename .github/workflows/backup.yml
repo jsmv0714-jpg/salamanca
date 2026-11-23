@@ -1,14 +1,3 @@
-# Copia diaria de la base de datos en Cloudflare R2 (capa gratuita).
-# Secretos necesarios en GitHub (Settings > Secrets and variables > Actions):
-#   DATABASE_URL          cadena de conexión de Neon (solo lectura basta)
-#   BACKUP_S3_ENDPOINT    https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-#   BACKUP_S3_BUCKET      bucket de copias (distinto al de medios)
-#   BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY   token de R2 solo para ese bucket
-#   BACKUP_HEARTBEAT_URL  (opcional) URL del monitor tipo "heartbeat" de UptimeRobot
-#
-# Mientras falte algún secreto, la ejecución termina correctamente y solo deja un aviso.
-# El contexto `secrets` no se puede usar en `if`, por eso la comprobación se hace en un paso.
-
 name: Copia de seguridad
 
 on:
@@ -49,7 +38,6 @@ jobs:
       - name: Volcar la base de datos
         if: steps.config.outputs.configured == 'true'
         run: |
-          # pg_dump debe ser de la misma versión mayor que el servidor (Neon usa Postgres 17).
           docker run --rm -e DATABASE_URL postgres:17 \
             sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges' > backup.dump
           test -s backup.dump

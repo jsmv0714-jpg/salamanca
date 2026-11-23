@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "../../../lib/prisma";
 import { getCurrentUser } from "../../../lib/session";
 import { getUserRole } from "../../../lib/permissions";
+import { safeHttpUrl } from "../../../lib/profile";
 import {
   BUSINESS_MODEL_LABELS,
   SERVICE_STAGES,
@@ -185,14 +186,14 @@ async function VentureDetail({ params }: { params: Promise<{ slug: string }> }) 
               <ul className="space-y-2 text-sm">
                 {venture.website ? (
                   <li>
-                    <a href={venture.website} target="_blank" rel="noopener noreferrer" className="font-medium text-unis-red hover:underline">
+                    <a href={safeHttpUrl(venture.website) ?? undefined} target="_blank" rel="noopener noreferrer" className="font-medium text-unis-red hover:underline">
                       Sitio web
                     </a>
                   </li>
                 ) : null}
                 {venture.linkedin_url ? (
                   <li>
-                    <a href={venture.linkedin_url} target="_blank" rel="noopener noreferrer" className="font-medium text-unis-red hover:underline">
+                    <a href={safeHttpUrl(venture.linkedin_url) ?? undefined} target="_blank" rel="noopener noreferrer" className="font-medium text-unis-red hover:underline">
                       LinkedIn
                     </a>
                   </li>

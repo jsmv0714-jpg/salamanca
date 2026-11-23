@@ -1,4 +1,5 @@
 import { getCurrentUser } from "../../../../../../lib/session";
+import { isSameOrigin } from "../../../../../../lib/origin";
 import { validateDeclaredMedia } from "../../../../../../lib/media";
 import { authorizeMediaUpload } from "../../../../../../lib/media-upload";
 import { hasRemoteStorage, newMediaKey, presignPut } from "../../../../../../lib/storage";
@@ -10,6 +11,7 @@ function json(body: unknown, status: number) {
 /** Devuelve una URL firmada para subir el archivo directamente al bucket. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!isSameOrigin(request)) return json({ error: "Petición no permitida." }, 403);
 
   const user = await getCurrentUser();
   const authorization = await authorizeMediaUpload(user, id);

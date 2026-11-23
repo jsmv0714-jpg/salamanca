@@ -1,5 +1,3 @@
-# Despliegue gratuito en Render (plan Free). Ver la sección "Despliegue gratuito" del README.
-# Los valores marcados con sync: false se completan en el panel de Render, nunca aquí.
 services:
   - type: web
     name: unisalamanca-marketplace
@@ -7,7 +5,6 @@ services:
     plan: free
     region: oregon
     buildCommand: npm ci && npm run build
-    # Las migraciones se aplican antes de arrancar. Son idempotentes: sin cambios pendientes no hacen nada.
     startCommand: npm run db:deploy && npm start
     healthCheckPath: /api/health
     envVars:

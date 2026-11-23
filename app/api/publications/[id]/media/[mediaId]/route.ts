@@ -1,12 +1,14 @@
 import { prisma } from "../../../../../../lib/prisma";
 import { getCurrentUser } from "../../../../../../lib/session";
+import { isSameOrigin } from "../../../../../../lib/origin";
 import { getUserRole } from "../../../../../../lib/permissions";
 import { UUID_RE } from "../../../../../../lib/validation";
 import { deleteMedia, thumbKeyFor } from "../../../../../../lib/storage";
 
 /** Quita un archivo de una publicación y lo borra del almacenamiento (con su miniatura). */
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string; mediaId: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string; mediaId: string }> }) {
   const { id, mediaId } = await params;
+  if (!isSameOrigin(request)) return Response.json({ error: "Petición no permitida." }, { status: 403 });
 
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "Debes iniciar sesión." }, { status: 401 });

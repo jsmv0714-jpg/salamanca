@@ -8,6 +8,12 @@ describe("mensajes de error de autenticación", () => {
     );
   });
 
+  it("no revela si un correo ya tiene cuenta al registrarse", () => {
+    const message = authErrorMessage({ status: 422, message: "User already exists. Use another email." }, "x");
+    expect(message).not.toMatch(/existe|already/i);
+    expect(message).toMatch(/recupera tu contraseña/);
+  });
+
   it("usa el mensaje del servidor en otros errores y el de respaldo si no hay mensaje", () => {
     expect(authErrorMessage({ status: 400, message: "Correo inválido" }, "x")).toBe("Correo inválido");
     expect(authErrorMessage({ status: 500 }, "No se pudo")).toBe("No se pudo");

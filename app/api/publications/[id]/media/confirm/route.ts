@@ -1,5 +1,6 @@
 import { prisma } from "../../../../../../lib/prisma";
 import { getCurrentUser } from "../../../../../../lib/session";
+import { isSameOrigin } from "../../../../../../lib/origin";
 import { MEDIA_LIMITS, detectMedia, formatMediaLimit, limitFor, validateDeclaredMedia } from "../../../../../../lib/media";
 import { processImage } from "../../../../../../lib/media-processing";
 import { authorizeMediaUpload } from "../../../../../../lib/media-upload";
@@ -25,6 +26,7 @@ const KEY_RE = /^publications\/([0-9a-f-]{36})\/([0-9a-f-]{36})\.(jpg|png|webp|m
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!isSameOrigin(request)) return json({ error: "Petición no permitida." }, 403);
 
   const user = await getCurrentUser();
   const authorization = await authorizeMediaUpload(user, id);

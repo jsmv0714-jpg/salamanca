@@ -1,5 +1,6 @@
 import { prisma } from "../../../../../lib/prisma";
 import { getCurrentUser } from "../../../../../lib/session";
+import { isSameOrigin } from "../../../../../lib/origin";
 import { MEDIA_LIMITS, detectMedia, formatMediaLimit, limitFor } from "../../../../../lib/media";
 import { processImage } from "../../../../../lib/media-processing";
 import { authorizeMediaUpload } from "../../../../../lib/media-upload";
@@ -12,6 +13,7 @@ function json(body: unknown, status: number) {
 /** Sube una imagen o video a una publicación propia (o cualquiera, si es admin). */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!isSameOrigin(request)) return json({ error: "Petición no permitida." }, 403);
 
   const user = await getCurrentUser();
   const authorization = await authorizeMediaUpload(user, id);

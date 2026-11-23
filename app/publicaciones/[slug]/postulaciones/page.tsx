@@ -6,6 +6,7 @@ import { requireUser } from "../../../../lib/session";
 import { getUserRole } from "../../../../lib/permissions";
 import { formatDate } from "../../../../lib/dates";
 import { formatBytes } from "../../../../lib/cv-file";
+import { safeHttpUrl } from "../../../../lib/profile";
 import {
   APPLICATION_STATUS_LABELS,
   REVIEWER_APPLICATION_STATUSES,
@@ -86,7 +87,10 @@ async function PostulacionesRecibidasContent({ params }: { params: Promise<{ slu
               { label: isInternship ? "Portafolio" : "Sitio web o más información", url: application.portfolio_url },
               { label: "LinkedIn", url: application.linkedin_url },
               { label: "Perfil profesional", url: application.users.profile_public ? `/perfiles/${application.applicant_id}` : null },
-            ].filter((l): l is { label: string; url: string } => Boolean(l.url));
+            ].flatMap((l) => {
+              const url = safeHttpUrl(l.url);
+              return url ? [{ label: l.label, url }] : [];
+            });
 
             return (
               <li key={application.id} className="rounded-lg border border-unis-lightgray bg-white p-5 shadow-sm">

@@ -1,5 +1,6 @@
 import { prisma } from "../../../../lib/prisma";
 import { getCurrentUser } from "../../../../lib/session";
+import { isSameOrigin } from "../../../../lib/origin";
 import { getUserStatus } from "../../../../lib/permissions";
 import { MEDIA_LIMITS, detectMedia } from "../../../../lib/media";
 import { processAvatar } from "../../../../lib/media-processing";
@@ -12,6 +13,7 @@ function fail(error: string, status: number) {
 
 /** Sube la foto de perfil de la persona que inicia sesión. */
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) return fail("Petición no permitida.", 403);
   const user = await getCurrentUser();
   if (!user) return fail("Debes iniciar sesión.", 401);
   if (getUserStatus(user) !== "active") return fail("Tu cuenta debe estar activa para cambiar tu foto.", 403);
