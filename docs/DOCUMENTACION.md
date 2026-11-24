@@ -270,7 +270,7 @@ Solo nombres; **ningún valor real se versiona**.
 | Grupo | Variables | Secretas |
 |---|---|---|
 | Aplicación | `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `NODE_VERSION` | `DATABASE_URL`, `BETTER_AUTH_SECRET` |
-| Correo | `RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL` | `RESEND_API_KEY` |
+| Correo | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL` | `SMTP_PASSWORD`, `RESEND_API_KEY` |
 | Medios | `S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `MEDIA_PUBLIC_URL` | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` |
 | Backups | `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_HEARTBEAT_URL` | Las credenciales `BACKUP_S3_*` |
 | Pruebas | `E2E_BASE_URL`, `CI` | No |
@@ -330,10 +330,14 @@ Antes de E2E por primera vez: `npx playwright install chromium`.
 - Tokens separados por bucket con permisos **Object Read & Write**.
 - CORS en el bucket de medios: `PUT` y cabecera `Content-Type`.
 
-### Resend
+### Correo
 
-- Dominio verificado con SPF y DKIM.
-- Sin `RESEND_API_KEY`, los correos se imprimen en consola (útil en desarrollo).
+- Proveedores en orden de prioridad: SMTP → Resend → consola.
+- SMTP recomendado con Gmail: `smtp.gmail.com`, puerto `587`, `SMTP_SECURE=false`, usuario y contraseña de aplicación de 16 caracteres. Los espacios que muestra Gmail se eliminan al leer `SMTP_PASSWORD`.
+- Gmail exige que `EMAIL_FROM` use el usuario autenticado; el código lo ajusta automáticamente si detecta otro remitente.
+- Resend requiere un dominio propio verificado con SPF y DKIM; `onboarding@resend.dev` solo envía al correo de la cuenta de Resend.
+- Sin ningún proveedor, los correos se imprimen en consola (útil en desarrollo).
+- `sendBatchEmails` usa el endpoint de lotes de Resend; con SMTP envía uno por uno y aísla los fallos.
 
 ### UptimeRobot
 
@@ -364,7 +368,7 @@ Checklist usado antes de publicar:
 
 ### Pruebas existentes
 
-- **Unitarias:** 15 archivos en `tests/` cubren roles, guards de autenticación, errores, fechas, correo por lotes, listado, medios, noticias, origen/CSRF, paginación, perfil, publicaciones, consultas y reportes.
+- **Unitarias:** 16 archivos en `tests/` cubren roles, guards de autenticación, errores, fechas, correo por SMTP y por lotes, listado, medios, noticias, origen/CSRF, paginación, perfil, publicaciones, consultas y reportes.
 - **E2E:** `smoke`, `listado`, `directorio`, `perfil` y `noticias`; crean datos propios con correos `e2e.*` y los limpian al terminar. No ejecutar contra producción.
 
 ---

@@ -18,6 +18,16 @@ services:
         sync: false
       - key: NEXT_PUBLIC_APP_URL
         sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM

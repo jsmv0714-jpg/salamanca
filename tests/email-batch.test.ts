@@ -10,6 +10,12 @@ describe("envío de correos por lotes", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     delete process.env.RESEND_API_KEY;
+    delete process.env.SMTP_HOST;
+    delete process.env.SMTP_USER;
+    delete process.env.SMTP_PASSWORD;
+    delete process.env.SMTP_PORT;
+    delete process.env.SMTP_SECURE;
+    delete process.env.EMAIL_FROM;
   });
 
   it("si un lote se rechaza, reenvía uno por uno y solo cuenta como fallido el destinatario malo", async () => {

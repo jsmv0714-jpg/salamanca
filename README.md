@@ -24,7 +24,9 @@ Si ya tienes la base de datos creada por otro medio, puedes ejecutar `prisma/sql
 
 ## Correo
 
-Los correos transaccionales (recuperación de contraseña, verificación y avisos de postulaciones) usan Resend cuando existe `RESEND_API_KEY`. Sin esa variable, el correo se imprime en la consola del servidor, lo que permite probar los flujos en local sin proveedor externo. `EMAIL_FROM` es opcional y define el remitente.
+Los correos transaccionales (recuperación de contraseña, verificación y avisos de postulaciones) usan **SMTP cuando `SMTP_HOST`, `SMTP_USER` y `SMTP_PASSWORD` están definidos**; si no, usan Resend cuando existe `RESEND_API_KEY`. Sin ningún proveedor, el correo se imprime en la consola del servidor para probar los flujos en local.
+
+Para Gmail usa `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_SECURE=false`, tu correo en `SMTP_USER` y una **contraseña de aplicación de 16 caracteres** en `SMTP_PASSWORD` (se genera en *Cuenta de Google → Seguridad → Verificación en dos pasos → Contraseñas de aplicación*). Gmail solo permite enviar como el usuario autenticado, así que `EMAIL_FROM` debe usar ese mismo correo; si no, el código lo ajusta automáticamente. `RESEND_API_KEY` queda como respaldo, pero Resend solo funciona con un dominio propio verificado (el remitente `onboarding@resend.dev` no sirve para usuarios externos).
 
 ## Medios
 
@@ -69,7 +71,7 @@ El rol `admin` no se puede elegir al registrarse. Para el primer administrador u
 
 ## Despliegue y operación
 
-Antes de publicar, revisa `.env.example` y define al menos `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` y las variables de almacenamiento (`S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `MEDIA_PUBLIC_URL`). Sin bucket, las subidas fallan en producción. Para el correo real, verifica el dominio en Resend (SPF y DKIM), define `RESEND_API_KEY` y ajusta `EMAIL_FROM`; sin la clave los correos solo se imprimen en consola.
+Antes de publicar, revisa `.env.example` y define al menos `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` y las variables de almacenamiento (`S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `MEDIA_PUBLIC_URL`). Sin bucket, las subidas fallan en producción. Para el correo real, configura SMTP (recomendado: Gmail con contraseña de aplicación) o, si prefieres Resend, verifica un dominio propio con SPF y DKIM antes de definir `RESEND_API_KEY`; sin proveedor los correos solo se imprimen en consola.
 
 En cada despliegue ejecuta `npm run db:deploy` antes de arrancar la app (`npm run build` y `npm start`). El endpoint `GET /api/health` responde `200` con `{"status":"ok"}` cuando la base de datos contesta y `503` cuando no; úsalo en el monitor de disponibilidad (por ejemplo, cada minuto, avisando tras dos fallos seguidos) y revisa los errores 5xx en los registros del servidor.
 
@@ -79,10 +81,10 @@ Las páginas de términos, privacidad y contacto siguen marcadas como borrador h
 
 ### Lista de verificación antes de publicar
 
-1. Variables de producción completas y con secretos propios (no los de desarrollo): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL` y el bloque `S3_*` + `MEDIA_PUBLIC_URL`.
+1. Variables de producción completas y con secretos propios (no los de desarrollo): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`, `SMTP_*`, `EMAIL_FROM`, `CONTACT_EMAIL` y el bloque `S3_*` + `MEDIA_PUBLIC_URL`. `RESEND_API_KEY` es opcional si ya usas SMTP.
 2. Base de datos: `npm run db:status` sin migraciones pendientes, `npm run db:deploy` en el despliegue y el primer administrador creado con `npm run admin:promote -- correo@dominio`.
 3. Almacenamiento: CORS del bucket limitado al dominio de la app (`PUT` y `Content-Type`), `MEDIA_PUBLIC_URL` sin barra final y una subida de prueba (imagen y video) desde una publicación.
-4. Correo: dominio verificado en Resend con SPF y DKIM, y pruebas reales de verificación de cuenta, recuperación de contraseña y aviso de postulación.
+4. Correo: SMTP configurado (o dominio verificado en Resend con SPF y DKIM si se usa Resend), y pruebas reales de verificación de cuenta, recuperación de contraseña y aviso de postulación.
 5. Legal y contenido: términos, privacidad y correo de contacto validados por la universidad; retirar el aviso de borrador solo después de esa revisión.
 6. Operación: monitor sobre `/api/health` (alerta tras dos fallos seguidos), revisión de errores 5xx y copias de seguridad de base de datos y medios con restauración probada.
 7. Calidad: `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:e2e` y `npm run build` en verde sobre el commit que se va a desplegar.
@@ -93,7 +95,7 @@ Todo el despliegue usa planes gratuitos. Limitaciones: la app en Render se duerm
 
 1. **Base de datos (Neon).** Crea un proyecto en el plan Free y copia la cadena de conexión con `sslmode=require`. Será `DATABASE_URL`.
 2. **Archivos (Cloudflare R2).** Crea dos buckets: `unisalamanca-media` (medios) y `unisalamanca-backups` (copias). En el de medios activa el acceso público de desarrollo (`MEDIA_PUBLIC_URL`) y aplica la política CORS de la sección de medios. Crea un token de API con lectura y escritura solo para cada bucket: uno para `S3_*` y otro para `BACKUP_S3_*`. En el bucket de copias añade una regla de ciclo de vida que borre objetos de más de 30 días.
-3. **Aplicación (Render).** En *New → Blueprint* conecta el repositorio; Render lee `render.yaml`. Completa las variables marcadas como secretas (`DATABASE_URL`, `BETTER_AUTH_URL` y `NEXT_PUBLIC_APP_URL` con la URL de Render, `RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL` y las `S3_*`). `BETTER_AUTH_SECRET` se genera sola. Hay una plantilla en `render-import.env.example`: cópiala a `render-import.env`, rellena los valores y pégala en *Environment → Import from .env*; el archivo local está ignorado por Git. `DATABASE_URL` no está en la plantilla para no sobrescribir la que ya tiene Render.
+3. **Aplicación (Render).** En *New → Blueprint* conecta el repositorio; Render lee `render.yaml`. Completa las variables marcadas como secretas (`DATABASE_URL`, `BETTER_AUTH_URL` y `NEXT_PUBLIC_APP_URL` con la URL de Render, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `CONTACT_EMAIL` y las `S3_*`). `BETTER_AUTH_SECRET` se genera sola. Hay una plantilla en `render-import.env.example`: cópiala a `render-import.env`, rellena los valores y pégala en *Environment → Import from .env*; el archivo local está ignorado por Git. `DATABASE_URL` no está en la plantilla para no sobrescribir la que ya tiene Render.
 4. **Primer administrador.** Como Render Free no ofrece consola, ejecútalo desde tu equipo con la `DATABASE_URL` de Neon en `.env`: `npm run admin:promote -- correo@dominio`.
 5. **Monitor (UptimeRobot).** Crea un monitor HTTP sobre `https://<tu-app>.onrender.com/api/health` cada 5 minutos con aviso por correo. Opcional: crea un monitor tipo *heartbeat* para las copias y pon su URL en `BACKUP_HEARTBEAT_URL`.
 6. **Copias (GitHub Actions).** En *Settings → Secrets and variables → Actions* agrega `DATABASE_URL`, `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID` y `BACKUP_S3_SECRET_ACCESS_KEY` (y opcionalmente `BACKUP_HEARTBEAT_URL`). El flujo corre cada día a las 05:17 UTC y puedes lanzarlo a mano desde la pestaña *Actions*. Mientras falte alguno de esos secretos, la ejecución termina sin error y solo deja un aviso en el registro; en cuanto estén completos, las copias empiezan a subirse solas.

@@ -91,12 +91,12 @@
 | Acceso | better-auth |
 | Archivos | Cloudflare R2 |
 | Imágenes | sharp |
-| Correo | Resend |
+| Correo | Gmail SMTP (con Resend como respaldo) |
 | Despliegue | Render · GitHub Actions · UptimeRobot |
 
 **Qué decir**
 
-> “Usamos Next.js 16 con App Router, React 19 y TypeScript para toda la aplicación. La base es PostgreSQL en Neon, accedida con Prisma. La autenticación la resuelve better-auth con verificación obligatoria de correo. Los archivos van a Cloudflare R2, compatible con S3, y las imágenes se procesan en servidor con sharp para quitar metadatos y generar miniaturas. El correo lo envía Resend cuando está configurado. Todo se despliega en Render, con copias en GitHub Actions y monitorización en UptimeRobot. La clave aquí es que cada pieza tiene un propósito y todas caben en planes gratuitos.”
+> “Usamos Next.js 16 con App Router, React 19 y TypeScript para toda la aplicación. La base es PostgreSQL en Neon, accedida con Prisma. La autenticación la resuelve better-auth con verificación obligatoria de correo. Los archivos van a Cloudflare R2, compatible con S3, y las imágenes se procesan en servidor con sharp para quitar metadatos y generar miniaturas. El correo sale por Gmail SMTP, con Resend como respaldo. Todo se despliega en Render, con copias en GitHub Actions y monitorización en UptimeRobot. La clave aquí es que cada pieza tiene un propósito y todas caben en planes gratuitos.”
 
 **Frase para memorizar**
 
@@ -110,13 +110,13 @@
 
 > Navegador → Render (Next.js) → Neon PostgreSQL  
 > Render → Cloudflare R2 (medios)  
-> Render → Resend (correo)  
+> Render → Gmail SMTP (correo)  
 > UptimeRobot → `/api/health`  
 > GitHub Actions → copia diaria → R2
 
 **Qué decir**
 
-> “El navegador habla solo con la aplicación en Render. La aplicación valida sesión y permisos en servidor, consulta Neon con Prisma, guarda medios en R2 y envía correos con Resend. UptimeRobot consulta el endpoint de salud cada cinco minutos para mantener despierta la app y avisar si falla. GitHub Actions hace una copia diaria de PostgreSQL y la sube a un bucket separado de R2.”
+> “El navegador habla solo con la aplicación en Render. La aplicación valida sesión y permisos en servidor, consulta Neon con Prisma, guarda medios en R2 y envía correos por SMTP. UptimeRobot consulta el endpoint de salud cada cinco minutos para mantener despierta la app y avisar si falla. GitHub Actions hace una copia diaria de PostgreSQL y la sube a un bucket separado de R2.”
 
 ---
 
@@ -228,7 +228,8 @@
 | Cloudflare R2 | Imágenes, videos y backups |
 | AWS SDK para S3 | Subida firmada y acceso al bucket |
 | sharp | Procesamiento de imágenes y miniaturas |
-| Resend | Correo transaccional |
+| Nodemailer + Gmail SMTP | Correo transaccional |
+| Resend | Respaldo de correo |
 | Render | Hosting de la aplicación |
 | GitHub / GitHub Actions | Versionado y copias diarias |
 | UptimeRobot | Monitorización y avisos |
@@ -285,7 +286,7 @@ R2 es compatible con S3, evita costes de salida y permite separar medios de back
 El rol no está en el formulario público; los hooks de better-auth descartan `role` y `status`, y las rutas de administración devuelven 404 a no administradores.
 
 **¿Qué pasa si falla el correo?**  
-Las notificaciones internas siguen funcionando. Resend es importante para verificación y recuperación, pero no es un punto único de fallo para la interacción dentro de la app.
+Las notificaciones internas siguen funcionando. El SMTP es importante para verificación y recuperación, pero no es un punto único de fallo para la interacción dentro de la app; además, el proveedor se elige en tiempo de ejecución y Resend queda como respaldo.
 
 **¿Las fotos suben directamente al bucket?**  
 En publicaciones sí: el navegador usa una URL firmada y luego el servidor confirma. La foto de perfil se procesa y sube desde el servidor; por eso depende de las credenciales reales de R2 configuradas en Render.

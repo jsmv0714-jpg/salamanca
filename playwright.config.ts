@@ -37,7 +37,7 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
-        // Vacía la clave para que los correos de las pruebas se registren en consola y no salgan por Resend.
-        env: { RESEND_API_KEY: "" },
+        // Vacía los proveedores para que los correos de las pruebas se registren en consola.
+        env: { RESEND_API_KEY: "", SMTP_HOST: "", SMTP_USER: "", SMTP_PASSWORD: "" },
       },
 });
