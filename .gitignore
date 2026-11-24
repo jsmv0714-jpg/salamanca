@@ -45,6 +45,9 @@ yarn-error.log*
 next-env.d.ts
 !.env.example
 
+# variables listas para importar en Render (contienen secretos)
+/render-import.env
+
 # archivos subidos en desarrollo (sin almacenamiento S3 configurado)
 /.uploads/
 
