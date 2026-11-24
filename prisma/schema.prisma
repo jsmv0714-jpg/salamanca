@@ -236,50 +236,53 @@ model teachers {
 }
 
 model users {
-  id                       String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                     String                @default("") @db.VarChar(200)
-  email                    String                @unique @db.VarChar(150)
-  email_verified           Boolean               @default(false)
-  image                    String?               @db.VarChar(500)
+  id                         String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                       String                @default("") @db.VarChar(200)
+  email                      String                @unique @db.VarChar(150)
+  email_verified             Boolean               @default(false)
+  image                      String?               @db.VarChar(500)
   /// Sin uso: better-auth guarda el hash de la contraseña en account.password.
-  password_hash            String?               @db.VarChar(255)
-  role                     user_role
-  status                   user_status           @default(pending)
-  email_verified_at        DateTime?             @db.Timestamp(6)
-  last_login_at            DateTime?             @db.Timestamp(6)
-  headline                 String?               @db.VarChar(160)
-  bio                      String?               @db.VarChar(2000)
-  skills                   String[]              @default([])
-  phone                    String?               @db.VarChar(50)
-  city                     String?               @db.VarChar(100)
-  website                  String?               @db.VarChar(500)
-  contact_email            String?               @db.VarChar(150)
-  social_links             Json?
-  profile_public           Boolean               @default(false)
-  notify_news              Boolean               @default(true)
-  news                     news[]
-  publication_marks        publication_marks[]
-  venture_marks            venture_marks[]
-  venture_reports_made     venture_reports[]     @relation("VentureReportReporter")
-  venture_reports_reviewed venture_reports[]     @relation("VentureReportReviewer")
-  created_at               DateTime              @default(now()) @db.Timestamp(6)
-  updated_at               DateTime              @default(now()) @db.Timestamp(6)
-  associations             associations?
-  companies                companies?
-  entrepreneurs            entrepreneurs?
-  publications             publications[]
-  students                 students?
-  teachers                 teachers?
-  sessions                 session[]
-  accounts                 account[]
-  ventures                 ventures[]
-  directory_profiles       directory_profiles?
-  applications             applications[]
-  role_changes_received    role_changes[]        @relation("RoleChangeTarget")
-  role_changes_made        role_changes[]        @relation("RoleChangeActor")
-  notifications            notifications[]
-  reports_made             publication_reports[] @relation("ReportReporter")
-  reports_reviewed         publication_reports[] @relation("ReportReviewer")
+  password_hash              String?               @db.VarChar(255)
+  role                       user_role
+  status                     user_status           @default(pending)
+  email_verified_at          DateTime?             @db.Timestamp(6)
+  last_login_at              DateTime?             @db.Timestamp(6)
+  headline                   String?               @db.VarChar(160)
+  bio                        String?               @db.VarChar(2000)
+  skills                     String[]              @default([])
+  phone                      String?               @db.VarChar(50)
+  city                       String?               @db.VarChar(100)
+  website                    String?               @db.VarChar(500)
+  contact_email              String?               @db.VarChar(150)
+  social_links               Json?
+  profile_public             Boolean               @default(false)
+  notify_news                Boolean               @default(true)
+  news                       news[]
+  publication_marks          publication_marks[]
+  venture_marks              venture_marks[]
+  venture_reports_made       venture_reports[]     @relation("VentureReportReporter")
+  venture_reports_reviewed   venture_reports[]     @relation("VentureReportReviewer")
+  directory_marks            directory_marks[]
+  directory_reports_made     directory_reports[]   @relation("DirectoryReportReporter")
+  directory_reports_reviewed directory_reports[]   @relation("DirectoryReportReviewer")
+  created_at                 DateTime              @default(now()) @db.Timestamp(6)
+  updated_at                 DateTime              @default(now()) @db.Timestamp(6)
+  associations               associations?
+  companies                  companies?
+  entrepreneurs              entrepreneurs?
+  publications               publications[]
+  students                   students?
+  teachers                   teachers?
+  sessions                   session[]
+  accounts                   account[]
+  ventures                   ventures[]
+  directory_profiles         directory_profiles?
+  applications               applications[]
+  role_changes_received      role_changes[]        @relation("RoleChangeTarget")
+  role_changes_made          role_changes[]        @relation("RoleChangeActor")
+  notifications              notifications[]
+  reports_made               publication_reports[] @relation("ReportReporter")
+  reports_reviewed           publication_reports[] @relation("ReportReviewer")
 
   @@index([email], map: "idx_users_email")
   @@index([role], map: "idx_users_role")
@@ -469,6 +472,8 @@ model directory_profiles {
   users                   users                     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   sectors                 sectors?                  @relation(fields: [sector_id], references: [id], onUpdate: NoAction)
   directory_profile_areas directory_profile_areas[]
+  directory_marks         directory_marks[]
+  directory_reports       directory_reports[]
 
   @@index([is_visible], map: "idx_directory_profiles_visible")
 }
@@ -704,4 +709,40 @@ model venture_reports {
 
   @@unique([venture_id, reporter_id], map: "uq_venture_reports_venture_reporter")
   @@index([status, created_at], map: "idx_venture_reports_status_created")
+}
+
+/// Marcas de una persona sobre un miembro del directorio: guardado (me gusta) u oculto.
+model directory_marks {
+  user_id              String             @db.Uuid
+  directory_profile_id String             @db.Uuid
+  saved                Boolean            @default(false)
+  hidden               Boolean            @default(false)
+  created_at           DateTime           @default(now()) @db.Timestamp(6)
+  updated_at           DateTime           @default(now()) @updatedAt @db.Timestamp(6)
+  users                users              @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  directory_profiles   directory_profiles @relation(fields: [directory_profile_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, directory_profile_id])
+  @@index([user_id, saved], map: "idx_directory_marks_saved")
+  @@index([user_id, hidden], map: "idx_directory_marks_hidden")
+}
+
+/// Denuncias sobre un perfil del directorio. Las revisa un administrador.
+model directory_reports {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  directory_profile_id String             @db.Uuid
+  reporter_id          String?            @db.Uuid
+  reason               report_reason
+  details              String             @db.VarChar(1000)
+  status               report_status      @default(open)
+  admin_note           String?            @db.VarChar(500)
+  reviewed_by_id       String?            @db.Uuid
+  reviewed_at          DateTime?          @db.Timestamp(6)
+  created_at           DateTime           @default(now()) @db.Timestamp(6)
+  directory_profiles   directory_profiles @relation(fields: [directory_profile_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                users?             @relation("DirectoryReportReporter", fields: [reporter_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  reviewed_by          users?             @relation("DirectoryReportReviewer", fields: [reviewed_by_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([directory_profile_id, reporter_id], map: "uq_directory_reports_profile_reporter")
+  @@index([status, created_at], map: "idx_directory_reports_status_created")
 }

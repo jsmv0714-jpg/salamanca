@@ -20,7 +20,7 @@ export default function GuardadosPage() {
         <Reveal>
           <h1 className="mt-6 text-3xl font-black tracking-tight text-white sm:text-4xl">Guardados</h1>
           <p className="mt-2 max-w-2xl text-base text-white/80">
-            Las publicaciones y ventures que marcaste con me gusta, para revisarlas más tarde.
+            Las publicaciones, ventures y miembros del directorio que marcaste con me gusta, para revisarlos más tarde.
           </p>
         </Reveal>
       </div>
@@ -36,7 +36,7 @@ export default function GuardadosPage() {
 async function GuardadosContent() {
   const user = await requireUser("/cuenta/guardados");
 
-  const [publications, ventures] = await Promise.all([
+  const [publications, ventures, directory] = await Promise.all([
     prisma.publication_marks.findMany({
       where: { user_id: user.id, saved: true, publications: { status: { in: ["published", "closed"] } } },
       orderBy: { updated_at: "desc" },
@@ -66,6 +66,24 @@ async function GuardadosContent() {
       orderBy: { updated_at: "desc" },
       select: {
         ventures: { select: { id: true, slug: true, name: true, type: true, tagline: true, city: true } },
+      },
+    }),
+    prisma.directory_marks.findMany({
+      where: {
+        user_id: user.id,
+        saved: true,
+        directory_profiles: { is_visible: true, users: { status: "active" } },
+      },
+      orderBy: { updated_at: "desc" },
+      select: {
+        directory_profiles: {
+          select: {
+            id: true,
+            display_name: true,
+            headline: true,
+            users: { select: { name: true } },
+          },
+        },
       },
     }),
   ]);
@@ -145,6 +163,42 @@ async function GuardadosContent() {
                 </form>
               </li>
             ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm sm:p-8">
+        <h2 className="flex items-center gap-3 text-lg font-bold text-unis-text">
+          <Heart className="h-5 w-5 fill-unis-red text-unis-red" aria-hidden="true" />
+          Miembros del directorio guardados ({directory.length})
+        </h2>
+        {directory.length === 0 ? (
+          <p className="mt-4 text-sm text-unis-gray">
+            Aún no guardas miembros. Pulsa el corazón en el detalle de una ficha del directorio para guardarla aquí.
+          </p>
+        ) : (
+          <ul className="mt-5 divide-y divide-unis-lightgray">
+            {directory.map(({ directory_profiles: profile }) => {
+              const name = profile.display_name || profile.users.name || "Miembro del directorio";
+              return (
+                <li key={profile.id} className="flex flex-wrap items-center justify-between gap-4 py-4">
+                  <div className="min-w-0">
+                    <Link href={`/directorio?ver=${profile.id}`} className="font-semibold text-unis-text hover:text-unis-red">
+                      {name}
+                    </Link>
+                    {profile.headline ? <p className="mt-1 text-sm text-unis-gray">{profile.headline}</p> : null}
+                  </div>
+                  <form action={toggleSaved}>
+                    <input type="hidden" name="kind" value="directory" />
+                    <input type="hidden" name="id" value={profile.id} />
+                    <input type="hidden" name="next" value="/cuenta/guardados" />
+                    <button type="submit" className="text-sm font-medium text-unis-gray hover:text-unis-red hover:underline">
+                      Quitar
+                    </button>
+                  </form>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

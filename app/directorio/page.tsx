@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { prisma } from "../../lib/prisma";
 import { getCurrentUser } from "../../lib/session";
-import { loadDirectory, type DirectoryEntry, type DirectoryFilters } from "../../lib/directory";
-import { buildQuery, param } from "../../lib/query";
+import { loadDirectory, type DirectoryFilters } from "../../lib/directory";
+import { buildQuery, pageNumber, param } from "../../lib/query";
 import {
   ALLIANCE_LABELS,
   BUSINESS_MODEL_LABELS,
@@ -30,11 +30,14 @@ type DirFiltersActive = {
   modelo?: BusinessModelFilter;
   alianza?: AllianceFilter;
   q?: string;
+  ver?: string;
+  page?: string;
 };
 
 type DirectoryRoleFilter = "company" | "association" | "entrepreneur" | "teacher";
 type BusinessModelFilter = "b2b" | "b2c" | "both";
 type AllianceFilter = "active" | "intention";
+type MemberMark = { saved: boolean; hidden: boolean };
 
 export const metadata: Metadata = {
   title: "Directorio | Unisalamanca Marketplace",
@@ -59,13 +62,18 @@ export default function DirectorioPage({ searchParams }: { searchParams: Promise
 
 async function DirectorioContent({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const raw = await searchParams;
+  const tipoParam = param(raw.tipo);
+  const modeloParam = param(raw.modelo);
+  const alianzaParam = param(raw.alianza);
   const current: DirFiltersActive = {
-    tipo: isDirectoryRole(param(raw.tipo)) ? (param(raw.tipo) as DirectoryRoleFilter) : undefined,
+    tipo: tipoParam && isDirectoryRole(tipoParam) ? (tipoParam as DirectoryRoleFilter) : undefined,
     sector: param(raw.sector),
     area: param(raw.area),
-    modelo: isBusinessModel(param(raw.modelo)) ? (param(raw.modelo) as BusinessModelFilter) : undefined,
-    alianza: param(raw.alianza) === "active" || param(raw.alianza) === "intention" ? (param(raw.alianza) as AllianceFilter) : undefined,
+    modelo: modeloParam && isBusinessModel(modeloParam) ? (modeloParam as BusinessModelFilter) : undefined,
+    alianza: alianzaParam === "active" || alianzaParam === "intention" ? (alianzaParam as AllianceFilter) : undefined,
     q: param(raw.q),
+    ver: param(raw.ver),
+    page: param(raw.page),
   };
 
   const filters: DirectoryFilters = {
@@ -77,19 +85,40 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
     q: current.q,
   };
 
-  const [user, entries, sectors, areas] = await Promise.all([
-    getCurrentUser(),
+  const user = await getCurrentUser();
+  const [entries, sectors, areas, marks] = await Promise.all([
     loadDirectory(filters),
     prisma.sectors.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
     prisma.areas_of_expertise.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
+    user
+      ? prisma.directory_marks.findMany({
+          where: { user_id: user.id },
+          select: { directory_profile_id: true, saved: true, hidden: true },
+        })
+      : Promise.resolve([]),
   ]);
 
-  const hasFilters = Object.values(current).some(Boolean);
-  const href = (overrides: Record<string, string | undefined>) => `/directorio${buildQuery(current as Record<string, string | undefined>, overrides)}`;
+  const markMap = new Map<string, MemberMark>(
+    marks.map((mark) => [mark.directory_profile_id, { saved: mark.saved, hidden: mark.hidden }])
+  );
+  const visibleEntries = entries.filter((entry) => !markMap.get(entry.id)?.hidden);
+  const hasFilters = Boolean(current.tipo || current.sector || current.area || current.modelo || current.alianza || current.q);
 
-  const totalPages = Math.max(1, Math.ceil(entries.length / DIRECTORY_PAGE_SIZE));
-  const pageEntries = entries.slice(0, DIRECTORY_PAGE_SIZE);
-  const selected = (user ? pageEntries.find((entry: DirectoryEntry) => entry.userId === user.id) : undefined) ?? null;
+  // Los enlaces de filtros limpian la selección y la página; las tarjetas y la paginación las restauran.
+  const href = (overrides: Record<string, string | undefined>) =>
+    `/directorio${buildQuery({ ...current, ver: undefined, page: undefined }, overrides)}`;
+
+  const totalPages = Math.max(1, Math.ceil(visibleEntries.length / DIRECTORY_PAGE_SIZE));
+  const selectedFromUrl = current.ver ? visibleEntries.find((entry) => entry.id === current.ver) ?? null : null;
+  const effectivePage = selectedFromUrl
+    ? Math.floor(visibleEntries.findIndex((entry) => entry.id === selectedFromUrl.id) / DIRECTORY_PAGE_SIZE) + 1
+    : Math.min(pageNumber(current.page), totalPages);
+  const pageEntries = visibleEntries.slice((effectivePage - 1) * DIRECTORY_PAGE_SIZE, effectivePage * DIRECTORY_PAGE_SIZE);
+  const selected = selectedFromUrl ?? pageEntries[0] ?? null;
+  const selectedMark = selected ? markMap.get(selected.id) ?? { saved: false, hidden: false } : { saved: false, hidden: false };
+  const nextPath = selected
+    ? href({ ver: selected.id, page: effectivePage > 1 ? String(effectivePage) : undefined })
+    : "/directorio";
 
   const groups: FilterGroup[] = [
     {
@@ -148,7 +177,7 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <section aria-label="Listado del directorio" className="min-w-0 space-y-4 lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto lg:pr-2">
           <p className="text-sm font-medium text-unis-gray">
-            {entries.length} {entries.length === 1 ? "miembro encontrado" : "miembros encontrados"}
+            {visibleEntries.length} {visibleEntries.length === 1 ? "miembro encontrado" : "miembros encontrados"}
           </p>
 
           {pageEntries.length === 0 ? (
@@ -167,7 +196,12 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
               {pageEntries.map((entry) => (
                 <DirectoryCard key={entry.id} entry={entry} href={href({ ver: entry.id })} active={entry.id === selected?.id} />
               ))}
-              <Pagination label="Paginación del directorio" currentPage={1} totalPages={totalPages} hrefFor={(p) => href({ page: p > 1 ? String(p) : undefined })} />
+              <Pagination
+                label="Paginación del directorio"
+                currentPage={effectivePage}
+                totalPages={totalPages}
+                hrefFor={(p) => href({ page: p > 1 ? String(p) : undefined, ver: selected?.id })}
+              />
             </>
           )}
         </section>
@@ -177,7 +211,18 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
           className="min-w-0 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm sm:p-8 lg:sticky lg:top-6 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
         >
           {selected ? (
-            <MemberDetail entry={selected} nextPath="/directorio" signedIn={Boolean(user)} actions={{ toggleSavedAction: toggleSaved, toggleHiddenAction: toggleHidden, reportAction: reportItem.bind(null, "publication", selected?.id ?? "") }} />
+            <MemberDetail
+              entry={selected}
+              nextPath={nextPath}
+              signedIn={Boolean(user)}
+              saved={selectedMark.saved}
+              hidden={selectedMark.hidden}
+              actions={{
+                toggleSavedAction: toggleSaved,
+                toggleHiddenAction: toggleHidden,
+                reportAction: reportItem.bind(null, "directory", selected.id),
+              }}
+            />
           ) : (
             <p className="py-16 text-center text-sm text-unis-gray">Selecciona un miembro de la lista para ver sus detalles.</p>
           )}

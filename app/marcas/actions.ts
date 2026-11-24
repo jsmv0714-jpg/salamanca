@@ -9,18 +9,18 @@ import { notifyAdmins } from "../../lib/notifications";
 import { REPORT_REASON_LABELS, isReportReason, reportDetailsError } from "../../lib/reports";
 import { UUID_RE, getString, type FormState } from "../../lib/validation";
 
-type Kind = "publication" | "venture";
+type Kind = "publication" | "venture" | "directory";
 
 function readKind(formData: FormData): Kind | null {
   const kind = getString(formData, "kind");
-  return kind === "publication" || kind === "venture" ? kind : null;
+  return kind === "publication" || kind === "venture" || kind === "directory" ? kind : null;
 }
 
 function isUniqueViolation(error: unknown): boolean {
   return (error as { code?: string } | null)?.code === "P2002";
 }
 
-/** "Me gusta": guarda la publicación o venture en la sección Guardados de la cuenta. */
+/** "Me gusta": guarda la publicación, venture o perfil del directorio en la sección Guardados de la cuenta. */
 export async function toggleSaved(formData: FormData): Promise<void> {
   await toggleMark(formData, "saved");
 }
@@ -54,7 +54,7 @@ async function toggleMark(formData: FormData, field: "saved" | "hidden") {
       create: { user_id: user.id, publication_id: id, [field]: value },
       update: { [field]: value },
     });
-  } else {
+  } else if (kind === "venture") {
     const target = await prisma.ventures.findFirst({ where: { id, status: "published" }, select: { id: true } });
     if (!target) redirect(next);
 
@@ -66,13 +66,28 @@ async function toggleMark(formData: FormData, field: "saved" | "hidden") {
       create: { user_id: user.id, venture_id: id, [field]: value },
       update: { [field]: value },
     });
+  } else {
+    const target = await prisma.directory_profiles.findFirst({
+      where: { id, is_visible: true, users: { status: "active" } },
+      select: { id: true },
+    });
+    if (!target) redirect(next);
+
+    const key = { user_id_directory_profile_id: { user_id: user.id, directory_profile_id: id } };
+    const current = await prisma.directory_marks.findUnique({ where: key, select: { saved: true, hidden: true } });
+    const value = !(current?.[field] ?? false);
+    await prisma.directory_marks.upsert({
+      where: key,
+      create: { user_id: user.id, directory_profile_id: id, [field]: value },
+      update: { [field]: value },
+    });
   }
 
   redirect(next);
 }
 
 /**
- * Denuncia una publicación o una venture. El motivo y la justificación son obligatorios:
+ * Denuncia una publicación, venture o perfil del directorio. El motivo y la justificación son obligatorios:
  * el administrador necesita saber por qué se denuncia.
  */
 export async function reportItem(kind: Kind, id: string, _prev: FormState, formData: FormData): Promise<FormState> {
@@ -112,7 +127,7 @@ export async function reportItem(kind: Kind, id: string, _prev: FormState, formD
         body: `${user.name || user.email} denunció "${target.title}": ${REPORT_REASON_LABELS[reason]}.`,
         href: "/admin/reportes?estado=open",
       });
-    } else {
+    } else if (kind === "venture") {
       const target = await prisma.ventures.findFirst({
         where: { id, status: "published" },
         select: { id: true, name: true, user_id: true },
@@ -128,6 +143,24 @@ export async function reportItem(kind: Kind, id: string, _prev: FormState, formD
         title: "Nueva denuncia de venture",
         body: `${user.name || user.email} denunció "${target.name}": ${REPORT_REASON_LABELS[reason]}.`,
         href: "/admin/reportes?estado=open&tipo=ventures",
+      });
+    } else {
+      const target = await prisma.directory_profiles.findFirst({
+        where: { id, is_visible: true, users: { status: "active" } },
+        select: { id: true, display_name: true, user_id: true, users: { select: { name: true } } },
+      });
+      if (!target) return { error: "Este perfil ya no está disponible." };
+      if (target.user_id === user.id) return { error: "No puedes denunciar tu propio perfil." };
+
+      await prisma.directory_reports.create({
+        data: { directory_profile_id: target.id, reporter_id: user.id, reason, details },
+      });
+      const label = target.display_name || target.users.name || "un miembro del directorio";
+      await notifyAdmins({
+        type: "report_created",
+        title: "Nueva denuncia del directorio",
+        body: `${user.name || user.email} denunció el perfil de "${label}": ${REPORT_REASON_LABELS[reason]}.`,
+        href: "/admin/reportes/directorio?estado=open",
       });
     }
   } catch (error) {

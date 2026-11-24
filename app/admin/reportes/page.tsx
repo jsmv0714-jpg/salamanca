@@ -73,6 +73,10 @@ async function AdminReportesContent({ searchParams }: { searchParams: Promise<Se
         <Link href="/admin/reportes/ventures" className="font-semibold text-unis-red hover:underline">
           Ver denuncias de ventures
         </Link>
+        <span className="mx-2 text-unis-lightgray">·</span>
+        <Link href="/admin/reportes/directorio" className="font-semibold text-unis-red hover:underline">
+          Ver denuncias del directorio
+        </Link>
       </p>
       <p className="mt-2 text-base text-unis-gray">
         Revisa lo que reportan los usuarios. Puedes resolver el reporte, descartarlo o retirar la publicación.

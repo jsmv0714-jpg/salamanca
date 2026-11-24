@@ -29,7 +29,7 @@ export default function ItemActions({
   reportAction,
   signedIn,
 }: {
-  kind: "publication" | "venture";
+  kind: "publication" | "venture" | "directory";
   id: string;
   nextPath: string;
   sharePath: string;
@@ -155,7 +155,7 @@ export default function ItemActions({
         <ReportDialog
           dialogRef={dialogRef}
           reportAction={reportAction}
-          kindLabel={kind === "publication" ? "publicación" : "venture"}
+          kindLabel={kind === "publication" ? "publicación" : kind === "venture" ? "venture" : "ficha"}
         />
       ) : null}
     </div>

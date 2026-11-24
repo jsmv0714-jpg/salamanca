@@ -9,6 +9,8 @@ import { hashPassword } from "better-auth/crypto";
 export const E2E_PREFIX = "e2e.";
 export const E2E_PASSWORD = "ClaveE2E123!";
 export const E2E_PUBLICATION_SLUG = "e2e-practica-smoke";
+export const E2E_DIRECTORY_PROFILE_ID = "11111111-1111-4111-8111-111111111111";
+const E2E_AREA_SLUG = "e2e-desarrollo-web";
 
 export const E2E_STUDENT = {
   email: "e2e.estudiante@unisalamanca.test",
@@ -61,6 +63,7 @@ async function createUser(user: FixtureUser) {
 export async function resetFixtures() {
   await prisma.publications.deleteMany({ where: { slug: E2E_PUBLICATION_SLUG } });
   await prisma.users.deleteMany({ where: { email: { startsWith: E2E_PREFIX } } });
+  await prisma.areas_of_expertise.deleteMany({ where: { slug: E2E_AREA_SLUG } });
 }
 
 /** Crea las cuentas y la publicación publicada que usan las pruebas. */
@@ -99,6 +102,25 @@ export async function seedFixtures() {
       show_contact: false,
       status: "published",
       published_at: new Date(),
+    },
+  });
+
+  // Ficha visible del directorio para probar guardados, ocultos y denuncias de miembros.
+  const area = await prisma.areas_of_expertise.upsert({
+    where: { slug: E2E_AREA_SLUG },
+    update: {},
+    create: { name: "Desarrollo web E2E", slug: E2E_AREA_SLUG },
+    select: { id: true },
+  });
+  await prisma.directory_profiles.create({
+    data: {
+      id: E2E_DIRECTORY_PROFILE_ID,
+      user_id: companyId,
+      display_name: "Empresa E2E",
+      headline: "Asesoría en desarrollo web",
+      core_expertise: "Desarrollo web y análisis de datos",
+      is_visible: true,
+      directory_profile_areas: { create: { area_id: area.id } },
     },
   });
 

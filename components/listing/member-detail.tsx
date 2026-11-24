@@ -18,11 +18,15 @@ export default function MemberDetail({
   entry,
   nextPath,
   signedIn,
+  saved,
+  hidden,
   actions,
 }: {
   entry: DirectoryEntry;
   nextPath: string;
   signedIn: boolean;
+  saved: boolean;
+  hidden: boolean;
   actions: Actions;
 }) {
   const summary = entry.headline ?? entry.coreExpertise;
@@ -49,7 +53,7 @@ export default function MemberDetail({
       </header>
 
       {socialEntries.length > 0 ? (
-        <Section icon={Link2} title="Redes sociales">
+        <Section icon={Link2} title="Áreas de asesoría">
           <ul className="mt-3 flex flex-wrap gap-3">
             {socialEntries.map((area) => (
               <li key={area.slug}>
@@ -85,13 +89,13 @@ export default function MemberDetail({
           Ver ficha
         </Link>
         <ItemActions
-          kind="publication"
+          kind="directory"
           id={entry.id}
           nextPath={nextPath}
-          sharePath={`/directorio/${entry.id}`}
+          sharePath={`/directorio?ver=${entry.id}`}
           shareTitle={entry.name}
-          saved={false}
-          hidden={false}
+          saved={saved}
+          hidden={hidden}
           toggleSavedAction={actions.toggleSavedAction}
           toggleHiddenAction={actions.toggleHiddenAction}
           reportAction={actions.reportAction}
