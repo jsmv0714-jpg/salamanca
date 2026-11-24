@@ -108,4 +108,5 @@ Revisa cada mes que la copia se haya creado y restaura una en una base vacía (`
 
 ## Documentación
 
-La documentación detallada (arquitectura, modelo de datos, autenticación y pendientes) está en el documento del proyecto compartido por el equipo.
+- [Documentación técnica](docs/DOCUMENTACION.md): arquitectura, modelo de datos, flujos, seguridad, variables de entorno, despliegue, pruebas y mantenimiento.
+- [Guion de presentación](docs/GUION_PRESENTACION.md): guion por diapositivas, demo en vivo, herramientas usadas, puntos a destacar y preguntas frecuentes.
