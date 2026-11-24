@@ -40,7 +40,7 @@ type AllianceFilter = "active" | "intention";
 type MemberMark = { saved: boolean; hidden: boolean };
 
 export const metadata: Metadata = {
-  title: "Directorio | Unisalamanca Marketplace",
+  title: "Directorio",
   description: "Empresas, agremiaciones, emprendedores y consultores del ecosistema Winner.",
 };
 
