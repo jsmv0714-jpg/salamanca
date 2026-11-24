@@ -1,5 +1,7 @@
 @import "tailwindcss";
-/* Tipografía de la página de la universidad (Plus Jakarta Sans), alojada en el propio proyecto. */
+/* Tipografía de la página, alojada en el propio proyecto.
+   Inter para un registro fórmico y legible; el recorrido de porcentajes de la variable */
+@import "@fontsource-variable/inter";
 @import "@fontsource-variable/plus-jakarta-sans";
 
 @theme inline {
@@ -14,7 +16,7 @@
   --color-unis-lightgray: #EAEAEA;
   --color-unis-bg: #F8F9FA;
   --color-unis-text: #212529;
-  --font-sans: "Plus Jakarta Sans Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Inter Variable", "Plus Jakarta Sans Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body {

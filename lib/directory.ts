@@ -29,8 +29,13 @@ export type DirectoryEntry = {
   areas: { slug: string; name: string }[];
   skills: string[];
   socialLinks: SocialLinks;
+  isVisible: boolean;
+  /** Puerto de ficha pública: aunque esté activa, no tiene perfil en el directorio. */
   profilePublic: boolean;
 };
+
+/** Entrada del directorio para el panel de la derecha (usado por Mi cuenta y el listado). */
+export type DirectoryDetailEntry = DirectoryEntry;
 
 export type DirectoryFilters = {
   tipo?: DirectoryRole;
@@ -139,6 +144,7 @@ function toEntry(row: ProfileRow): DirectoryEntry | null {
       .sort((a, b) => a.name.localeCompare(b.name, "es")),
     skills: account.skills,
     socialLinks,
+    isVisible: row.is_visible,
     profilePublic: account.profile_public,
   };
 }
