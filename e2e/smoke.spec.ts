@@ -132,7 +132,7 @@ test.describe("reporte de una publicación y moderación", () => {
     await expect(page).toHaveURL(new RegExp(`/publicaciones/${E2E_PUBLICATION_SLUG}/reportar$`));
 
     await page.getByLabel("Motivo").selectOption("scam");
-    await page.getByLabel("Detalles (opcional)").fill("Prueba E2E: la publicación pide un pago para postularse.");
+    await page.getByLabel("Justificación").fill("Prueba E2E: la publicación pide un pago para postularse.");
     await page.getByRole("button", { name: "Enviar reporte" }).click();
     await expect(page.getByText(/Recibimos tu reporte/)).toBeVisible();
 

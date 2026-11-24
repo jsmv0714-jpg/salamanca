@@ -33,3 +33,17 @@ export function removalReason(note: string): string {
   const text = note ? `${base}: ${note}` : `${base}.`;
   return text.length > 500 ? `${text.slice(0, 497)}...` : text;
 }
+
+/** Una denuncia debe justificarse: no basta con elegir un motivo. */
+export const REPORT_DETAILS_MIN = 20;
+export const REPORT_DETAILS_MAX = 1000;
+
+/** Devuelve el mensaje de error de la justificación, o null si es válida. */
+export function reportDetailsError(details: string): string | null {
+  const text = details.trim();
+  if (text.length < REPORT_DETAILS_MIN) {
+    return `Explica por qué denuncias esta publicación: escribe al menos ${REPORT_DETAILS_MIN} caracteres.`;
+  }
+  if (text.length > REPORT_DETAILS_MAX) return `Máximo ${REPORT_DETAILS_MAX} caracteres.`;
+  return null;
+}

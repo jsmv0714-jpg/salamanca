@@ -64,7 +64,7 @@ async function ReportarContent({
       : error === "motivo"
         ? "Elige un motivo para el reporte."
         : error === "detalles"
-          ? "Los detalles no pueden superar los 1000 caracteres."
+          ? "Explica por qué denuncias: escribe entre 20 y 1000 caracteres."
           : error === "guardar"
             ? "No pudimos guardar el reporte. Intenta de nuevo."
             : undefined;
@@ -118,11 +118,11 @@ async function ReportarContent({
           </Field>
 
           <Field
-            label="Detalles (opcional)"
+            label="Justificación" required
             htmlFor="details"
-            hint="Describe el problema: enlaces, mensajes o cualquier dato que ayude a revisarlo. Máximo 1000 caracteres."
+            hint="Explica qué encontraste y por qué incumple las normas. Mínimo 20 caracteres, máximo 1000."
           >
-            <textarea id="details" name="details" rows={5} maxLength={1000} className={inputClass} />
+            <textarea id="details" name="details" rows={5} maxLength={1000} minLength={20} required className={inputClass} />
           </Field>
 
           <p className="text-xs text-unis-gray">

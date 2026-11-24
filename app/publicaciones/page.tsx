@@ -1,149 +1,22 @@
 import { Suspense } from "react";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
-import PublicationCard from "../../components/publications/publication-card";
-import PublishButton from "../../components/publications/publish-button";
+import { getCurrentUser } from "../../lib/session";
+import { mediaPublicUrl } from "../../lib/storage";
+import { authorDisplayName, markSets } from "../../lib/listing";
+import { isModality, isPublicationTypeCode, MODALITY_LABELS, MODALITIES, PUBLICATIONS_PAGE_SIZE } from "../../lib/publications";
+import { buildQuery, pageNumber, param } from "../../lib/query";
+import PublicationCard from "../../components/listing/publication-card";
+import PublicationDetail, { type PublicationDetailData } from "../../components/listing/publication-detail";
+import FilterBar, { type FilterGroup } from "../../components/listing/filter-bar";
 import Pagination from "../../components/ui/pagination";
 import PageHeader from "../../components/ui/page-header";
-import { isModality, isPublicationTypeCode, PUBLICATIONS_PAGE_SIZE } from "../../lib/publications";
-import { buildQuery, pageNumber, param } from "../../lib/query";
-import Link from "next/link";
+import PublishButton from "../../components/publications/publish-button";
+import { toggleHidden, toggleSaved, reportItem } from "../marcas/actions";
 
-type SearchParams = {
-  tipo?: string | string[];
-  carrera?: string | string[];
-  sector?: string | string[];
-  modalidad?: string | string[];
-  page?: string | string[];
-};
+type SearchParams = Record<string, string | string[] | undefined>;
 
-export default function PublicacionesPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  return (
-    <Suspense fallback={<PublicacionesSkeleton />}>
-      <PublicacionesContent searchParams={searchParams} />
-    </Suspense>
-  );
-}
-
-async function PublicacionesContent({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  const params = await searchParams;
-
-  // Los valores de la URL no son de fiar: se normalizan y se validan contra los
-  // catálogos antes de llegar a Prisma (un enum inválido produce un error 500).
-  const activeTipo = param(params.tipo);
-  const activeCarrera = param(params.carrera);
-  const activeSector = param(params.sector);
-  const activeModalidad = param(params.modalidad);
-
-  const where: Prisma.publicationsWhereInput = {
-    status: "published",
-  };
-
-  if (isPublicationTypeCode(activeTipo)) {
-    where.publication_types = {
-      code: activeTipo,
-    };
-  }
-
-  if (isModality(activeModalidad)) {
-    where.modality = activeModalidad;
-  }
-
-  if (activeCarrera) {
-    where.publication_careers = {
-      some: {
-        careers: {
-          slug: activeCarrera,
-        },
-      },
-    };
-  }
-
-  if (activeSector) {
-    where.publication_sectors = {
-      some: {
-        sectors: {
-          slug: activeSector,
-        },
-      },
-    };
-  }
-
-  const requestedPage = pageNumber(param(params.page));
-
-  const [total, publicationTypes, careers, sectors] = await Promise.all([
-    prisma.publications.count({ where }),
-    prisma.publication_types.findMany({
-      where: { is_active: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.careers.findMany({
-      where: { is_active: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.sectors.findMany({
-      where: { is_active: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
-
-  const totalPages = Math.max(1, Math.ceil(total / PUBLICATIONS_PAGE_SIZE));
-  const currentPage = Math.min(requestedPage, totalPages);
-
-  const publications = await prisma.publications.findMany({
-    where,
-    include: {
-      publication_types: true,
-      publication_sectors: {
-        include: {
-          sectors: true,
-        },
-      },
-      publication_careers: {
-        include: {
-          careers: true,
-        },
-      },
-      publication_areas: {
-        include: {
-          areas_of_expertise: true,
-        },
-      },
-      publication_media: {
-        where: { kind: "image" },
-        orderBy: { position: "asc" },
-        take: 1,
-        select: { storage_key: true, thumb_key: true },
-      },
-    },
-    orderBy: {
-      published_at: "desc",
-    },
-    skip: (currentPage - 1) * PUBLICATIONS_PAGE_SIZE,
-    take: PUBLICATIONS_PAGE_SIZE,
-  });
-
-  const hasFilters = activeTipo || activeCarrera || activeSector || activeModalidad;
-  const filters = {
-    tipo: activeTipo,
-    carrera: activeCarrera,
-    sector: activeSector,
-    modalidad: activeModalidad,
-  };
-  const pageHref = (page: number) =>
-    `/publicaciones${buildQuery(filters, { page: page > 1 ? String(page) : undefined })}`;
-
-  const firstOnPage = total === 0 ? 0 : (currentPage - 1) * PUBLICATIONS_PAGE_SIZE + 1;
-  const lastOnPage = Math.min(currentPage * PUBLICATIONS_PAGE_SIZE, total);
-
+export default function PublicacionesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
     <div className="bg-white">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -156,186 +29,255 @@ async function PublicacionesContent({
             </Suspense>
           }
         />
-
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
-          <aside className="lg:col-span-1">
-            <div className="sticky top-6 space-y-6 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm">
-              <div>
-                <h2 className="text-sm font-bold uppercase tracking-wide text-unis-text">
-                  Filtros
-                </h2>
-                {hasFilters && (
-                  <Link
-                    href="/publicaciones"
-                    className="mt-2 inline-block text-xs font-medium text-unis-red hover:underline"
-                  >
-                    Limpiar filtros
-                  </Link>
-                )}
-              </div>
-
-              <div>
-                <h3 className="mb-3 text-sm font-semibold text-unis-text">Tipo de publicación</h3>
-                <div className="space-y-2">
-                  {publicationTypes.map((type) => (
-                    <Link
-                      key={type.id}
-                      href={`/publicaciones?${new URLSearchParams({
-                        ...(activeTipo === type.code ? {} : { tipo: type.code }),
-                        ...(activeCarrera ? { carrera: activeCarrera } : {}),
-                        ...(activeSector ? { sector: activeSector } : {}),
-                        ...(activeModalidad ? { modalidad: activeModalidad } : {}),
-                      }).toString()}`}
-                      className={`block rounded-md px-2 py-1.5 text-sm transition ${
-                        activeTipo === type.code
-                          ? "bg-unis-red/5 font-semibold text-unis-red"
-                          : "text-unis-gray hover:bg-unis-bg hover:text-unis-text"
-                      }`}
-                    >
-                      {type.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-unis-lightgray pt-6">
-                <h3 className="mb-3 text-sm font-semibold text-unis-text">Carrera</h3>
-                <div className="space-y-2">
-                  {careers.map((career) => (
-                    <Link
-                      key={career.id}
-                      href={`/publicaciones?${new URLSearchParams({
-                        ...(activeTipo ? { tipo: activeTipo } : {}),
-                        ...(activeCarrera === career.slug ? {} : { carrera: career.slug }),
-                        ...(activeSector ? { sector: activeSector } : {}),
-                        ...(activeModalidad ? { modalidad: activeModalidad } : {}),
-                      }).toString()}`}
-                      className={`block rounded-md px-2 py-1.5 text-sm transition ${
-                        activeCarrera === career.slug
-                          ? "bg-unis-red/5 font-semibold text-unis-red"
-                          : "text-unis-gray hover:bg-unis-bg hover:text-unis-text"
-                      }`}
-                    >
-                      {career.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-unis-lightgray pt-6">
-                <h3 className="mb-3 text-sm font-semibold text-unis-text">Sector</h3>
-                <div className="space-y-2">
-                  {sectors.map((sector) => (
-                    <Link
-                      key={sector.id}
-                      href={`/publicaciones?${new URLSearchParams({
-                        ...(activeTipo ? { tipo: activeTipo } : {}),
-                        ...(activeCarrera ? { carrera: activeCarrera } : {}),
-                        ...(activeSector === sector.slug ? {} : { sector: sector.slug }),
-                        ...(activeModalidad ? { modalidad: activeModalidad } : {}),
-                      }).toString()}`}
-                      className={`block rounded-md px-2 py-1.5 text-sm transition ${
-                        activeSector === sector.slug
-                          ? "bg-unis-red/5 font-semibold text-unis-red"
-                          : "text-unis-gray hover:bg-unis-bg hover:text-unis-text"
-                      }`}
-                    >
-                      {sector.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-unis-lightgray pt-6">
-                <h3 className="mb-3 text-sm font-semibold text-unis-text">Modalidad</h3>
-                <div className="space-y-2">
-                  {[
-                    { label: "Presencial", value: "presential" },
-                    { label: "Remoto", value: "remote" },
-                    { label: "Híbrido", value: "hybrid" },
-                  ].map((mod) => (
-                    <Link
-                      key={mod.value}
-                      href={`/publicaciones?${new URLSearchParams({
-                        ...(activeTipo ? { tipo: activeTipo } : {}),
-                        ...(activeCarrera ? { carrera: activeCarrera } : {}),
-                        ...(activeSector ? { sector: activeSector } : {}),
-                        ...(activeModalidad === mod.value ? {} : { modalidad: mod.value }),
-                      }).toString()}`}
-                      className={`block rounded-md px-2 py-1.5 text-sm transition ${
-                        activeModalidad === mod.value
-                          ? "bg-unis-red/5 font-semibold text-unis-red"
-                          : "text-unis-gray hover:bg-unis-bg hover:text-unis-text"
-                      }`}
-                    >
-                      {mod.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          <section className="lg:col-span-3">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm text-unis-gray">
-                {total === 0
-                  ? "0 publicaciones encontradas"
-                  : `Mostrando ${firstOnPage}–${lastOnPage} de ${total} ${
-                      total === 1 ? "publicación" : "publicaciones"
-                    }`}
-              </p>
-            </div>
-
-            {publications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-unis-lightgray py-16 text-center">
-                <h3 className="text-lg font-semibold text-unis-text">No hay publicaciones con estos filtros</h3>
-                <p className="mt-2 text-sm text-unis-gray">Prueba quitando algún filtro para ver más resultados.</p>
-                <Link
-                  href="/publicaciones"
-                  className="mt-6 rounded-md bg-unis-red px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
-                >
-                  Ver todas las publicaciones
-                </Link>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 gap-6">
-                  {publications.map((publication) => (
-                    <PublicationCard key={publication.id} publication={publication} />
-                  ))}
-                </div>
-
-                <Pagination
-                  label="Paginación de publicaciones"
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  hrefFor={pageHref}
-                />
-              </>
-            )}
-          </section>
-        </div>
+        <Suspense fallback={<div className="mt-8 h-96 animate-pulse rounded-2xl bg-unis-bg" aria-busy="true" />}>
+          <PublicacionesContent searchParams={searchParams} />
+        </Suspense>
       </div>
     </div>
   );
 }
 
-function PublicacionesSkeleton() {
+async function PublicacionesContent({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
+  const user = await getCurrentUser();
+
+  // Los valores de la URL no son de fiar: se validan contra los catálogos antes de Prisma.
+  const tipo = param(params.tipo);
+  const carrera = param(params.carrera);
+  const sector = param(params.sector);
+  const modalidad = param(params.modalidad);
+  const ocultas = param(params.ocultas) === "1" && Boolean(user);
+  const ver = param(params.ver);
+  const page = pageNumber(param(params.page));
+
+  const activeTipo = isPublicationTypeCode(tipo) ? tipo : undefined;
+  const activeModalidad = isModality(modalidad) ? modalidad : undefined;
+
+  const where: Prisma.publicationsWhereInput = { status: "published" };
+  if (activeTipo) where.publication_types = { code: activeTipo };
+  if (activeModalidad) where.modality = activeModalidad;
+  if (carrera) where.publication_careers = { some: { careers: { slug: carrera } } };
+  if (sector) where.publication_sectors = { some: { sectors: { slug: sector } } };
+  if (user) {
+    const hiddenByMe = { publication_marks: { some: { user_id: user.id, hidden: true } } };
+    if (ocultas) where.AND = [hiddenByMe];
+    else where.NOT = hiddenByMe;
+  }
+
+  const [total, hiddenCount, publicationTypes, careers, sectors] = await Promise.all([
+    prisma.publications.count({ where }),
+    user ? prisma.publication_marks.count({ where: { user_id: user.id, hidden: true } }) : Promise.resolve(0),
+    prisma.publication_types.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
+    prisma.careers.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
+    prisma.sectors.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PUBLICATIONS_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+
+  const rows = await prisma.publications.findMany({
+    where,
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      location: true,
+      deadline: true,
+      published_at: true,
+      modality: true,
+      publication_types: { select: { name: true } },
+      users: {
+        select: {
+          name: true,
+          companies: { select: { trade_name: true } },
+          associations: { select: { name: true } },
+          entrepreneurs: { select: { project_name: true, first_name: true, last_name: true } },
+        },
+      },
+    },
+    orderBy: { published_at: "desc" },
+    skip: (currentPage - 1) * PUBLICATIONS_PAGE_SIZE,
+    take: PUBLICATIONS_PAGE_SIZE,
+  });
+
+  const selectedSlug = ver ?? rows[0]?.slug;
+  const selected = selectedSlug
+    ? await prisma.publications.findFirst({
+        where: { slug: selectedSlug, status: { in: ["published", "closed"] } },
+        include: {
+          publication_types: { select: { name: true } },
+          publication_sectors: { include: { sectors: { select: { name: true } } } },
+          publication_careers: { include: { careers: { select: { name: true } } } },
+          publication_areas: { include: { areas_of_expertise: { select: { name: true } } } },
+          publication_media: { where: { kind: "image" }, orderBy: { position: "asc" }, take: 1, select: { storage_key: true } },
+          users: {
+            select: {
+              name: true,
+              companies: { select: { trade_name: true } },
+              associations: { select: { name: true } },
+              entrepreneurs: { select: { project_name: true, first_name: true, last_name: true } },
+            },
+          },
+        },
+      })
+    : null;
+
+  const marks = markSets(
+    await (user
+      ? prisma.publication_marks.findMany({
+          where: { user_id: user.id, publication_id: { in: [...rows.map((r) => r.id), ...(selected ? [selected.id] : [])] } },
+          select: { publication_id: true, saved: true, hidden: true },
+        })
+      : Promise.resolve([])).then((list) => list.map((m) => ({ id: m.publication_id, saved: m.saved, hidden: m.hidden })))
+  );
+
+  const base = { tipo, carrera, sector, modalidad, ocultas: ocultas ? "1" : undefined };
+  const listHref = (overrides: Record<string, string | undefined>) => `/publicaciones${buildQuery(base, overrides)}`;
+  const selectedHref = (slug: string) => `/publicaciones${buildQuery(base, { ver: slug, page: currentPage > 1 ? String(currentPage) : undefined })}`;
+  const currentHref = `/publicaciones${buildQuery(base, { ver: selected?.slug, page: currentPage > 1 ? String(currentPage) : undefined })}`;
+
+  const groups: FilterGroup[] = [
+    {
+      key: "tipo",
+      label: "Tipo",
+      activeLabel: activeTipo ? publicationTypes.find((t) => t.code === activeTipo)?.name : undefined,
+      options: [
+        { label: "Todos los tipos", href: listHref({ tipo: undefined }), active: !activeTipo },
+        ...publicationTypes.map((t) => ({ label: t.name, href: listHref({ tipo: t.code }), active: activeTipo === t.code })),
+      ],
+    },
+    {
+      key: "carrera",
+      label: "Carrera",
+      activeLabel: careers.find((c) => c.slug === carrera)?.name,
+      options: [
+        { label: "Todas las carreras", href: listHref({ carrera: undefined }), active: !carrera },
+        ...careers.map((c) => ({ label: c.name, href: listHref({ carrera: c.slug }), active: carrera === c.slug })),
+      ],
+    },
+    {
+      key: "sector",
+      label: "Sector",
+      activeLabel: sectors.find((s) => s.slug === sector)?.name,
+      options: [
+        { label: "Todos los sectores", href: listHref({ sector: undefined }), active: !sector },
+        ...sectors.map((s) => ({ label: s.name, href: listHref({ sector: s.slug }), active: sector === s.slug })),
+      ],
+    },
+    {
+      key: "modalidad",
+      label: "Modalidad",
+      activeLabel: activeModalidad ? MODALITY_LABELS[activeModalidad] : undefined,
+      options: [
+        { label: "Cualquier modalidad", href: listHref({ modalidad: undefined }), active: !activeModalidad },
+        ...MODALITIES.map((m) => ({ label: MODALITY_LABELS[m], href: listHref({ modalidad: m }), active: activeModalidad === m })),
+      ],
+    },
+  ];
+
+  const hasFilters = Boolean(activeTipo || carrera || sector || activeModalidad || ocultas);
+  const actions = {
+    toggleSavedAction: toggleSaved,
+    toggleHiddenAction: toggleHidden,
+    reportAction: reportItem.bind(null, "publication", selected?.id ?? ""),
+  };
+
+  const detail: PublicationDetailData | null = selected
+    ? {
+        id: selected.id,
+        slug: selected.slug,
+        title: selected.title,
+        description: selected.description,
+        requirements: selected.requirements,
+        benefits: selected.benefits,
+        location: selected.location,
+        deadline: selected.deadline,
+        modality: selected.modality,
+        publishedAt: selected.published_at,
+        typeName: selected.publication_types.name,
+        authorName: authorDisplayName(selected.users),
+        coverUrl: selected.publication_media[0] ? mediaPublicUrl(selected.publication_media[0].storage_key) : null,
+        careers: selected.publication_careers.map((c) => c.careers.name),
+        sectors: selected.publication_sectors.map((s) => s.sectors.name),
+        areas: selected.publication_areas.map((a) => a.areas_of_expertise.name),
+      }
+    : null;
+
   return (
-    <div className="bg-white" aria-busy="true">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="h-10 w-56 animate-pulse rounded bg-unis-lightgray" />
-        <div className="mt-3 h-5 w-96 max-w-full animate-pulse rounded bg-unis-lightgray" />
-        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-4">
-          <div className="h-96 animate-pulse rounded-lg bg-unis-bg lg:col-span-1" />
-          <div className="space-y-4 lg:col-span-3">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-32 animate-pulse rounded-lg bg-unis-bg" />
-            ))}
-          </div>
-        </div>
+    <>
+      <div className="mt-6">
+        <FilterBar
+          groups={groups}
+          clearHref={hasFilters ? "/publicaciones" : undefined}
+          hidden={user ? { count: hiddenCount, href: listHref({ ocultas: ocultas ? undefined : "1" }), active: ocultas } : undefined}
+        />
       </div>
-    </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <section aria-label="Listado de publicaciones" className="min-w-0 space-y-4 lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto lg:pr-2">
+          <p className="text-sm font-medium text-unis-gray">
+            {total === 0
+              ? ocultas
+                ? "No tienes publicaciones ocultas."
+                : "0 publicaciones encontradas"
+              : `${total} ${total === 1 ? "publicación" : "publicaciones"}${ocultas ? " ocultas" : ""}`}
+          </p>
+
+          {rows.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-unis-lightgray px-6 py-14 text-center">
+              <h2 className="text-base font-semibold text-unis-text">
+                {hasFilters ? "No hay publicaciones con estos filtros" : "Todavía no hay publicaciones"}
+              </h2>
+              <p className="mt-2 text-sm text-unis-gray">
+                {hasFilters ? "Quita algún filtro para ver más resultados." : "Vuelve pronto: se publicarán nuevas oportunidades."}
+              </p>
+            </div>
+          ) : (
+            <>
+              {rows.map((row) => {
+                return (
+                  <PublicationCard
+                    key={row.id}
+                    item={{
+                      slug: row.slug,
+                      title: row.title,
+                      typeName: row.publication_types.name,
+                      authorName: authorDisplayName(row.users),
+                      location: row.location,
+                      deadline: row.deadline,
+                      publishedAt: row.published_at,
+                      modality: row.modality,
+                    }}
+                    href={selectedHref(row.slug)}
+                    active={row.slug === selected?.slug}
+                    saved={marks.saved.has(row.id)}
+                    hidden={marks.hidden.has(row.id)}
+                  />
+                );
+              })}
+              <Pagination label="Paginación de publicaciones" currentPage={currentPage} totalPages={totalPages} hrefFor={(p) => listHref({ page: p > 1 ? String(p) : undefined })} />
+            </>
+          )}
+        </section>
+
+        <section
+          aria-label="Detalle de la publicación"
+          className="min-w-0 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm sm:p-8 lg:sticky lg:top-6 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
+        >
+          {detail ? (
+            <PublicationDetail
+              item={detail}
+              saved={marks.saved.has(detail.id)}
+              hidden={marks.hidden.has(detail.id)}
+              nextPath={currentHref}
+              signedIn={Boolean(user)}
+              actions={actions}
+            />
+          ) : (
+            <p className="py-16 text-center text-sm text-unis-gray">Selecciona una publicación de la lista para ver sus detalles.</p>
+          )}
+        </section>
+      </div>
+    </>
   );
 }

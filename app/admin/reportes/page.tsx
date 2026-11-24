@@ -69,6 +69,11 @@ async function AdminReportesContent({ searchParams }: { searchParams: Promise<Se
       </Link>
 
       <h1 className="mt-3 text-3xl font-black tracking-tight text-unis-text">Reportes de abuso</h1>
+      <p className="mt-2 text-sm">
+        <Link href="/admin/reportes/ventures" className="font-semibold text-unis-red hover:underline">
+          Ver denuncias de ventures
+        </Link>
+      </p>
       <p className="mt-2 text-base text-unis-gray">
         Revisa lo que reportan los usuarios. Puedes resolver el reporte, descartarlo o retirar la publicación.
       </p>

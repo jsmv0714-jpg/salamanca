@@ -7,7 +7,7 @@ import { getCurrentUser } from "../../../../lib/session";
 import { getUserStatus } from "../../../../lib/permissions";
 import { getString } from "../../../../lib/validation";
 import { notifyAdmins } from "../../../../lib/notifications";
-import { REPORT_REASON_LABELS, isReportReason } from "../../../../lib/reports";
+import { REPORT_REASON_LABELS, isReportReason, reportDetailsError } from "../../../../lib/reports";
 
 function isUniqueViolation(error: unknown): boolean {
   return (error as { code?: string } | null)?.code === "P2002";
@@ -38,7 +38,7 @@ export async function reportPublication(slug: string, formData: FormData): Promi
   if (!isReportReason(reason)) redirect(`${base}?error=motivo`);
 
   const details = getString(formData, "details");
-  if (details.length > 1000) redirect(`${base}?error=detalles`);
+  if (reportDetailsError(details)) redirect(`${base}?error=detalles`);
 
   const existing = await prisma.publication_reports.findUnique({
     where: { publication_id_reporter_id: { publication_id: publication.id, reporter_id: user.id } },

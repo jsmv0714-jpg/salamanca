@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   Bell,
   BookOpen,
+  Heart,
   Briefcase,
   ChevronRight,
   FileText,
@@ -154,6 +155,12 @@ async function CuentaContent({ searchParams }: { searchParams: Promise<SearchPar
       icon: UserCircle,
       badge: checklist.percent < 100 ? `${checklist.percent}% completo` : "Completo",
       tone: checklist.percent < 100 ? "amber" : "cyan",
+    },
+    {
+      title: "Guardados",
+      description: "Publicaciones y ventures que marcaste con me gusta.",
+      href: "/cuenta/guardados",
+      icon: Heart,
     },
     {
       title: "Notificaciones",
