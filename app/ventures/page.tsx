@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { getCurrentUser } from "../../lib/session";
@@ -136,8 +138,9 @@ async function VenturesContent({ searchParams }: { searchParams: Promise<SearchP
 
   const base = { tipo, sector, modelo, fase, q, ocultas: ocultas ? "1" : undefined };
   const listHref = (overrides: Record<string, string | undefined>) => `/ventures${buildQuery(base, overrides)}`;
-  const selectedHref = (slug: string) => `/ventures${buildQuery(base, { ver: slug, page: currentPage > 1 ? String(currentPage) : undefined })}`;
+  const selectedHref = (slug: string) => `/ventures${buildQuery(base, { ver: slug, page: currentPage > 1 ? String(currentPage) : undefined })}#detalle`;
   const currentHref = `/ventures${buildQuery(base, { ver: selected?.slug, page: currentPage > 1 ? String(currentPage) : undefined })}`;
+  const backHref = `${selected ? listHref({ page: currentPage > 1 ? String(currentPage) : undefined }) : "/ventures"}#listado`;
 
   const groups: FilterGroup[] = [
     {
@@ -236,8 +239,20 @@ async function VenturesContent({ searchParams }: { searchParams: Promise<SearchP
         />
       </div>
 
+      {ver && selected ? (
+        <div className="mt-4">
+          <Link href={backHref} className="inline-flex items-center gap-2 rounded-md text-sm font-semibold text-unis-red hover:underline">
+            <ArrowLeft aria-hidden="true" className="h-4 w-4" /> Volver al listado
+          </Link>
+        </div>
+      ) : null}
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <section aria-label="Listado de ventures" className="min-w-0 space-y-4 lg:max-h-[calc(100vh-14rem)] lg:overflow-y-auto lg:pr-2">
+        <section
+          id="listado"
+          aria-label="Listado de ventures"
+          className={`min-w-0 scroll-mt-6 space-y-4 lg:max-h-[calc(100vh-14rem)] lg:overflow-y-auto lg:pr-2${ver && selected ? " hidden lg:block" : ""}`}
+        >
           <p className="text-sm font-medium text-unis-gray">
             {total === 0
               ? ocultas
@@ -275,8 +290,9 @@ async function VenturesContent({ searchParams }: { searchParams: Promise<SearchP
         </section>
 
         <section
+          id="detalle"
           aria-label="Detalle de la venture"
-          className="min-w-0 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm sm:p-8 lg:sticky lg:top-6 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
+          className="min-w-0 scroll-mt-6 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm sm:p-8 lg:sticky lg:top-6 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
         >
           {detail ? (
             <VentureDetail

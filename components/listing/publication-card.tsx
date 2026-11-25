@@ -35,7 +35,6 @@ export default function PublicationCard({
   return (
     <Link
       href={href}
-      scroll={false}
       aria-current={active ? "true" : undefined}
       className={`block rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${
         active ? "border-unis-red ring-1 ring-unis-red/20" : "border-unis-lightgray hover:border-unis-cyan/60"

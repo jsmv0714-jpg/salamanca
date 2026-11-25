@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { prisma } from "../../lib/prisma";
 import { getCurrentUser } from "../../lib/session";
 import { loadDirectory, type DirectoryFilters } from "../../lib/directory";
@@ -119,6 +121,9 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
   const nextPath = selected
     ? href({ ver: selected.id, page: effectivePage > 1 ? String(effectivePage) : undefined })
     : "/directorio";
+  const backHref = `${selected ? href({ page: effectivePage > 1 ? String(effectivePage) : undefined }) : "/directorio"}#listado`;
+  const detailHref = (id: string) =>
+    `${href({ ver: id, page: effectivePage > 1 ? String(effectivePage) : undefined })}#detalle`;
 
   const groups: FilterGroup[] = [
     {
@@ -174,8 +179,20 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
         <FilterBar groups={groups} clearHref={hasFilters ? "/directorio" : undefined} />
       </div>
 
+      {current.ver && selected ? (
+        <div className="mt-4">
+          <Link href={backHref} className="inline-flex items-center gap-2 rounded-md text-sm font-semibold text-unis-red hover:underline">
+            <ArrowLeft aria-hidden="true" className="h-4 w-4" /> Volver al listado
+          </Link>
+        </div>
+      ) : null}
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <section aria-label="Listado del directorio" className="min-w-0 space-y-4 lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto lg:pr-2">
+        <section
+          id="listado"
+          aria-label="Listado del directorio"
+          className={`min-w-0 scroll-mt-6 space-y-4 lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto lg:pr-2${current.ver && selected ? " hidden lg:block" : ""}`}
+        >
           <p className="text-sm font-medium text-unis-gray">
             {visibleEntries.length} {visibleEntries.length === 1 ? "miembro encontrado" : "miembros encontrados"}
           </p>
@@ -194,7 +211,7 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
           ) : (
             <>
               {pageEntries.map((entry) => (
-                <DirectoryCard key={entry.id} entry={entry} href={href({ ver: entry.id })} active={entry.id === selected?.id} />
+                <DirectoryCard key={entry.id} entry={entry} href={detailHref(entry.id)} active={entry.id === selected?.id} />
               ))}
               <Pagination
                 label="Paginación del directorio"
@@ -207,8 +224,9 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
         </section>
 
         <section
+          id="detalle"
           aria-label="Detalle del miembro del directorio"
-          className="min-w-0 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm sm:p-8 lg:sticky lg:top-6 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
+          className="min-w-0 scroll-mt-6 rounded-2xl border border-unis-lightgray bg-white p-6 shadow-sm sm:p-8 lg:sticky lg:top-6 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
         >
           {selected ? (
             <MemberDetail

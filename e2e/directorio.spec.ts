@@ -41,3 +41,24 @@ test("denunciar una ficha del directorio exige justificar el motivo", async ({ p
 
   await expect(dialog.getByText(/al menos 20 caracteres/)).toBeVisible();
 });
+
+test.describe("en móvil", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("al pulsar un miembro se ve su ficha y se puede volver al listado", async ({ page }) => {
+    await page.goto("/directorio");
+
+    const list = page.getByRole("region", { name: "Listado del directorio" });
+    await list.getByRole("link").filter({ hasText: "Empresa E2E" }).click();
+
+    await expect(page).toHaveURL(new RegExp(`ver=${E2E_DIRECTORY_PROFILE_ID}`));
+    const detail = page.getByRole("region", { name: "Detalle del miembro del directorio" });
+    await expect(detail).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "Empresa E2E" })).toBeVisible();
+    await expect(list).toBeHidden();
+
+    await page.getByRole("link", { name: "Volver al listado" }).click();
+    await expect(list).toBeVisible();
+    await expect(page).not.toHaveURL(/ver=/);
+  });
+});

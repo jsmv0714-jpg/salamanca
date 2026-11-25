@@ -47,7 +47,6 @@ export default function VentureCard({
   return (
     <Link
       href={href}
-      scroll={false}
       aria-current={active ? "true" : undefined}
       aria-label={`${typeLabel}: ${venture.name}`}
       className={`block rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${
