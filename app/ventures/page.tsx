@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
+import { activeSectors } from "../../lib/catalogs";
 import { getCurrentUser } from "../../lib/session";
 import { markSets } from "../../lib/listing";
 import { buildQuery, pageNumber, param } from "../../lib/query";
@@ -123,7 +124,7 @@ async function VenturesContent({ searchParams }: { searchParams: Promise<SearchP
   const [total, hiddenCount, sectors, firstRows, preselected] = await Promise.all([
     prisma.ventures.count({ where }),
     user ? prisma.venture_marks.count({ where: { user_id: user.id, hidden: true } }) : Promise.resolve(0),
-    prisma.sectors.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
+    activeSectors(),
     loadRows(where, page),
     ver ? loadDetail(ver) : Promise.resolve(null),
   ]);

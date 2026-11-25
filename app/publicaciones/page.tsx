@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
+import { activeCareers, activePublicationTypes, activeSectors } from "../../lib/catalogs";
 import { getCurrentUser } from "../../lib/session";
 import { mediaPublicUrl } from "../../lib/storage";
 import { authorDisplayName, markSets } from "../../lib/listing";
@@ -120,9 +121,9 @@ async function PublicacionesContent({ searchParams }: { searchParams: Promise<Se
   const [total, hiddenCount, publicationTypes, careers, sectors, firstRows, preselected] = await Promise.all([
     prisma.publications.count({ where }),
     user ? prisma.publication_marks.count({ where: { user_id: user.id, hidden: true } }) : Promise.resolve(0),
-    prisma.publication_types.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
-    prisma.careers.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
-    prisma.sectors.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
+    activePublicationTypes(),
+    activeCareers(),
+    activeSectors(),
     loadRows(where, page),
     ver ? loadDetail(ver) : Promise.resolve(null),
   ]);

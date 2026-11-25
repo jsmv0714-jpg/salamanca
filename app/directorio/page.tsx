@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "../../lib/prisma";
+import { activeAreas, activeSectors } from "../../lib/catalogs";
 import { getCurrentUser } from "../../lib/session";
 import { loadDirectory, type DirectoryFilters } from "../../lib/directory";
 import { buildQuery, pageNumber, param } from "../../lib/query";
@@ -90,8 +91,8 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
   const user = await getCurrentUser();
   const [entries, sectors, areas, marks] = await Promise.all([
     loadDirectory(filters),
-    prisma.sectors.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
-    prisma.areas_of_expertise.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
+    activeSectors(),
+    activeAreas(),
     user
       ? prisma.directory_marks.findMany({
           where: { user_id: user.id },
