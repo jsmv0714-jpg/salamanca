@@ -28,6 +28,42 @@ const VENTURES_PAGE_SIZE = 12;
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
+function loadRows(where: Prisma.venturesWhereInput, page: number) {
+  return prisma.ventures.findMany({
+    where,
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      type: true,
+      tagline: true,
+      trl_level: true,
+      business_model: true,
+      city: true,
+      logo_url: true,
+      published_at: true,
+      sectors: { select: { name: true } },
+    },
+    orderBy: { published_at: "desc" },
+    skip: (page - 1) * VENTURES_PAGE_SIZE,
+    take: VENTURES_PAGE_SIZE,
+  });
+}
+
+function loadDetail(slug: string) {
+  return prisma.ventures.findFirst({
+    where: { slug, status: "published" },
+    include: { sectors: { select: { name: true } } },
+  });
+}
+
+function loadOwner(userId: string) {
+  return prisma.directory_profiles.findFirst({
+    where: { user_id: userId, is_visible: true, users: { status: "active" } },
+    select: { id: true, display_name: true, users: { select: { name: true } } },
+  });
+}
+
 export default function VenturesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
     <div className="bg-white">
@@ -84,56 +120,29 @@ async function VenturesContent({ searchParams }: { searchParams: Promise<SearchP
     else where.NOT = hiddenByMe;
   }
 
-  const [total, hiddenCount, sectors] = await Promise.all([
+  const [total, hiddenCount, sectors, firstRows, preselected] = await Promise.all([
     prisma.ventures.count({ where }),
     user ? prisma.venture_marks.count({ where: { user_id: user.id, hidden: true } }) : Promise.resolve(0),
     prisma.sectors.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
+    loadRows(where, page),
+    ver ? loadDetail(ver) : Promise.resolve(null),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / VENTURES_PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
+  const rows = currentPage === page ? firstRows : await loadRows(where, currentPage);
 
-  const rows = await prisma.ventures.findMany({
-    where,
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      type: true,
-      tagline: true,
-      trl_level: true,
-      business_model: true,
-      city: true,
-      logo_url: true,
-      published_at: true,
-      sectors: { select: { name: true } },
-    },
-    orderBy: { published_at: "desc" },
-    skip: (currentPage - 1) * VENTURES_PAGE_SIZE,
-    take: VENTURES_PAGE_SIZE,
-  });
+  const selected = ver ? preselected : rows[0] ? await loadDetail(rows[0].slug) : null;
 
-  const selectedSlug = ver ?? rows[0]?.slug;
-  const selected = selectedSlug
-    ? await prisma.ventures.findFirst({
-        where: { slug: selectedSlug, status: "published" },
-        include: { sectors: { select: { name: true } } },
-      })
-    : null;
-
-  const owner = selected
-    ? await prisma.directory_profiles.findFirst({
-        where: { user_id: selected.user_id, is_visible: true, users: { status: "active" } },
-        select: { id: true, display_name: true, users: { select: { name: true } } },
-      })
-    : null;
-
-  const markRows = user
-    ? await prisma.venture_marks.findMany({
-        where: { user_id: user.id, venture_id: { in: [...rows.map((r) => r.id), ...(selected ? [selected.id] : [])] } },
-        select: { venture_id: true, saved: true, hidden: true },
-      })
-    : [];
+  const [owner, markRows] = await Promise.all([
+    selected ? loadOwner(selected.user_id) : Promise.resolve(null),
+    user
+      ? prisma.venture_marks.findMany({
+          where: { user_id: user.id, venture_id: { in: [...rows.map((r) => r.id), ...(selected ? [selected.id] : [])] } },
+          select: { venture_id: true, saved: true, hidden: true },
+        })
+      : Promise.resolve([]),
+  ]);
   const marks = markSets(markRows.map((m) => ({ id: m.venture_id, saved: m.saved, hidden: m.hidden })));
 
   const base = { tipo, sector, modelo, fase, q, ocultas: ocultas ? "1" : undefined };

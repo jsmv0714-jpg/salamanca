@@ -18,6 +18,56 @@ import { toggleHidden, toggleSaved, reportItem } from "../marcas/actions";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
+const detailInclude = {
+  publication_types: { select: { name: true } },
+  publication_sectors: { include: { sectors: { select: { name: true } } } },
+  publication_careers: { include: { careers: { select: { name: true } } } },
+  publication_areas: { include: { areas_of_expertise: { select: { name: true } } } },
+  publication_media: { where: { kind: "image" }, orderBy: { position: "asc" }, take: 1, select: { storage_key: true } },
+  users: {
+    select: {
+      name: true,
+      companies: { select: { trade_name: true } },
+      associations: { select: { name: true } },
+      entrepreneurs: { select: { project_name: true, first_name: true, last_name: true } },
+    },
+  },
+} satisfies Prisma.publicationsInclude;
+
+function loadDetail(slug: string) {
+  return prisma.publications.findFirst({
+    where: { slug, status: { in: ["published", "closed"] } },
+    include: detailInclude,
+  });
+}
+
+function loadRows(where: Prisma.publicationsWhereInput, page: number) {
+  return prisma.publications.findMany({
+    where,
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      location: true,
+      deadline: true,
+      published_at: true,
+      modality: true,
+      publication_types: { select: { name: true } },
+      users: {
+        select: {
+          name: true,
+          companies: { select: { trade_name: true } },
+          associations: { select: { name: true } },
+          entrepreneurs: { select: { project_name: true, first_name: true, last_name: true } },
+        },
+      },
+    },
+    orderBy: { published_at: "desc" },
+    skip: (page - 1) * PUBLICATIONS_PAGE_SIZE,
+    take: PUBLICATIONS_PAGE_SIZE,
+  });
+}
+
 export default function PublicacionesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
     <div className="bg-white">
@@ -66,63 +116,24 @@ async function PublicacionesContent({ searchParams }: { searchParams: Promise<Se
     else where.NOT = hiddenByMe;
   }
 
-  const [total, hiddenCount, publicationTypes, careers, sectors] = await Promise.all([
+  // Todo lo que solo depende de la URL (y del usuario ya resuelto) arranca junto.
+  const [total, hiddenCount, publicationTypes, careers, sectors, firstRows, preselected] = await Promise.all([
     prisma.publications.count({ where }),
     user ? prisma.publication_marks.count({ where: { user_id: user.id, hidden: true } }) : Promise.resolve(0),
     prisma.publication_types.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
     prisma.careers.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
     prisma.sectors.findMany({ where: { is_active: true }, orderBy: { name: "asc" } }),
+    loadRows(where, page),
+    ver ? loadDetail(ver) : Promise.resolve(null),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / PUBLICATIONS_PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
+  // Una página fuera de rango se ajusta al último bloque real sin consultar de más.
+  const rows = currentPage === page ? firstRows : await loadRows(where, currentPage);
 
-  const rows = await prisma.publications.findMany({
-    where,
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      location: true,
-      deadline: true,
-      published_at: true,
-      modality: true,
-      publication_types: { select: { name: true } },
-      users: {
-        select: {
-          name: true,
-          companies: { select: { trade_name: true } },
-          associations: { select: { name: true } },
-          entrepreneurs: { select: { project_name: true, first_name: true, last_name: true } },
-        },
-      },
-    },
-    orderBy: { published_at: "desc" },
-    skip: (currentPage - 1) * PUBLICATIONS_PAGE_SIZE,
-    take: PUBLICATIONS_PAGE_SIZE,
-  });
-
-  const selectedSlug = ver ?? rows[0]?.slug;
-  const selected = selectedSlug
-    ? await prisma.publications.findFirst({
-        where: { slug: selectedSlug, status: { in: ["published", "closed"] } },
-        include: {
-          publication_types: { select: { name: true } },
-          publication_sectors: { include: { sectors: { select: { name: true } } } },
-          publication_careers: { include: { careers: { select: { name: true } } } },
-          publication_areas: { include: { areas_of_expertise: { select: { name: true } } } },
-          publication_media: { where: { kind: "image" }, orderBy: { position: "asc" }, take: 1, select: { storage_key: true } },
-          users: {
-            select: {
-              name: true,
-              companies: { select: { trade_name: true } },
-              associations: { select: { name: true } },
-              entrepreneurs: { select: { project_name: true, first_name: true, last_name: true } },
-            },
-          },
-        },
-      })
-    : null;
+  // Si el usuario eligió una publicación desde la URL, su detalle ya está listo.
+  const selected = ver ? preselected : rows[0] ? await loadDetail(rows[0].slug) : null;
 
   const marks = markSets(
     await (user

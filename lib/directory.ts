@@ -46,9 +46,24 @@ export type DirectoryFilters = {
   q?: string;
 };
 
-const profileInclude = {
-  sectors: true,
-  directory_profile_areas: { include: { areas_of_expertise: true } },
+/** Solo los campos que realmente usa una ficha del directorio. */
+const profileSelect = {
+  id: true,
+  user_id: true,
+  display_name: true,
+  headline: true,
+  core_expertise: true,
+  business_model: true,
+  city: true,
+  website: true,
+  linkedin_url: true,
+  logo_url: true,
+  contact_email: true,
+  is_visible: true,
+  sectors: { select: { name: true } },
+  directory_profile_areas: {
+    select: { areas_of_expertise: { select: { slug: true, name: true } } },
+  },
   users: {
     select: {
       id: true,
@@ -62,15 +77,40 @@ const profileInclude = {
       contact_email: true,
       social_links: true,
       profile_public: true,
-      companies: { include: { sectors: true } },
-      associations: { include: { sectors: true } },
-      entrepreneurs: true,
-      teachers: true,
+      companies: {
+        select: {
+          trade_name: true,
+          sectors: { select: { name: true } },
+          city: true,
+          website: true,
+          logo_url: true,
+          contact_email: true,
+          linkedin_url: true,
+          alliance_status: true,
+        },
+      },
+      associations: {
+        select: {
+          name: true,
+          core_activity: true,
+          sectors: { select: { name: true } },
+          city: true,
+          website: true,
+          logo_url: true,
+          contact_email: true,
+        },
+      },
+      entrepreneurs: {
+        select: { first_name: true, last_name: true, project_name: true, website: true, linkedin_url: true },
+      },
+      teachers: {
+        select: { first_name: true, last_name: true, title: true, research_group_name: true, linkedin_url: true },
+      },
     },
   },
-} satisfies Prisma.directory_profilesInclude;
+} satisfies Prisma.directory_profilesSelect;
 
-type ProfileRow = Prisma.directory_profilesGetPayload<{ include: typeof profileInclude }>;
+type ProfileRow = Prisma.directory_profilesGetPayload<{ select: typeof profileSelect }>;
 
 /**
  * Une el perfil de directorio con los datos del registro por rol.
@@ -197,7 +237,7 @@ export async function loadDirectory(filters: DirectoryFilters): Promise<Director
 
   const rows = await prisma.directory_profiles.findMany({
     where: { AND: and },
-    include: profileInclude,
+    select: profileSelect,
     take: 300,
   });
 
@@ -221,7 +261,7 @@ export async function loadDirectoryEntry(id: string): Promise<DirectoryEntry | n
   if (!UUID_RE.test(id)) return null;
   const row = await prisma.directory_profiles.findFirst({
     where: { AND: [{ id }, visibleWhere()] },
-    include: profileInclude,
+    select: profileSelect,
   });
   return row ? toEntry(row) : null;
 }

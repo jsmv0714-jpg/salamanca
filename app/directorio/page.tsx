@@ -217,7 +217,7 @@ async function DirectorioContent({ searchParams }: { searchParams: Promise<Searc
                 label="Paginación del directorio"
                 currentPage={effectivePage}
                 totalPages={totalPages}
-                hrefFor={(p) => href({ page: p > 1 ? String(p) : undefined, ver: selected?.id })}
+                hrefFor={(p) => href({ page: p > 1 ? String(p) : undefined })}
               />
             </>
           )}

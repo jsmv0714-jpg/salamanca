@@ -37,6 +37,8 @@ model associations {
   updated_at    DateTime @default(now()) @db.Timestamp(6)
   sectors       sectors? @relation(fields: [sector_id], references: [id], onUpdate: NoAction)
   users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([sector_id], map: "idx_associations_sector")
 }
 
 model careers {
@@ -72,6 +74,8 @@ model companies {
   updated_at      DateTime            @default(now()) @db.Timestamp(6)
   sectors         sectors?            @relation(fields: [sector_id], references: [id], onUpdate: NoAction)
   users           users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([sector_id], map: "idx_companies_sector")
 }
 
 model entrepreneurs {
@@ -96,6 +100,7 @@ model publication_areas {
   publications       publications       @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([publication_id, area_id])
+  @@index([area_id], map: "idx_publication_areas_area")
 }
 
 model publication_careers {
@@ -105,6 +110,7 @@ model publication_careers {
   publications   publications @relation(fields: [publication_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([publication_id, career_id])
+  @@index([career_id], map: "idx_publication_careers_career")
 }
 
 model publication_sectors {
@@ -114,6 +120,7 @@ model publication_sectors {
   sectors        sectors      @relation(fields: [sector_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([publication_id, sector_id])
+  @@index([sector_id], map: "idx_publication_sectors_sector")
 }
 
 model publication_types {
@@ -287,6 +294,7 @@ model users {
   @@index([email], map: "idx_users_email")
   @@index([role], map: "idx_users_role")
   @@index([status], map: "idx_users_status")
+  @@index([status, role], map: "idx_users_status_role")
 }
 
 model session {
@@ -437,7 +445,9 @@ model ventures {
   venture_reports   venture_reports[]
 
   @@index([status], map: "idx_ventures_status")
+  @@index([status, published_at], map: "idx_ventures_status_published_at")
   @@index([type], map: "idx_ventures_type")
+  @@index([sector_id], map: "idx_ventures_sector")
   @@index([user_id], map: "idx_ventures_user")
 }
 
@@ -448,6 +458,7 @@ model venture_areas {
   areas_of_expertise areas_of_expertise @relation(fields: [area_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([venture_id, area_id])
+  @@index([area_id], map: "idx_venture_areas_area")
 }
 
 /// Perfil público de un miembro del ecosistema. Solo aparece en el directorio si is_visible
@@ -476,6 +487,7 @@ model directory_profiles {
   directory_reports       directory_reports[]
 
   @@index([is_visible], map: "idx_directory_profiles_visible")
+  @@index([sector_id], map: "idx_directory_profiles_sector")
 }
 
 model directory_profile_areas {
@@ -485,6 +497,7 @@ model directory_profile_areas {
   areas_of_expertise areas_of_expertise @relation(fields: [area_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([profile_id, area_id])
+  @@index([area_id], map: "idx_directory_profile_areas_area")
 }
 
 enum venture_type {
@@ -674,6 +687,7 @@ model publication_marks {
 
   @@id([user_id, publication_id])
   @@index([user_id, saved], map: "idx_publication_marks_saved")
+  @@index([user_id, hidden], map: "idx_publication_marks_hidden")
 }
 
 /// Marcas de una persona sobre una venture: guardada (me gusta) u oculta.
@@ -689,6 +703,7 @@ model venture_marks {
 
   @@id([user_id, venture_id])
   @@index([user_id, saved], map: "idx_venture_marks_saved")
+  @@index([user_id, hidden], map: "idx_venture_marks_hidden")
 }
 
 /// Denuncias sobre una venture. Las revisa un administrador, igual que las de publicaciones.
